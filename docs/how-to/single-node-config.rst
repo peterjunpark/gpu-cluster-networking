@@ -9,7 +9,7 @@ Single node network configuration for AMD Instinct GPUs
 This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an HPC or AI/ML workload.
 
 Prerequisites
--------------
+=============
 
 Before following steps in this guide, ensure you have performed these actions first:
 
@@ -31,7 +31,7 @@ Before following steps in this guide, ensure you have performed these actions fi
        sudo usermod -a -G video $LOGNAME       
 
 Best Practices
-~~~~~~~~~~~~~~
+--------------
 
 Applications must be the same on every system. There are two ways to accomplish this: 
 
@@ -39,12 +39,12 @@ Applications must be the same on every system. There are two ways to accomplish 
 2. Make a system image with all the software installed. Note that you must re-image anytime there is a software change.
 
 Validate PCIe performance
---------------------------
+=========================
 
 This section demonstrates how to verify all network devices and GPU devices are using the maximum available transfer speed and width in their respective PCIe bus.
 
 Check PCIe Device Speed and Width
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 1. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
 
@@ -75,7 +75,7 @@ Check PCIe Device Speed and Width
 Verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
 
 Check PCIe Switch Speed and Width
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 Similar to the previous section, you must next check the PCIe switches in your system to ensure they're reporting the maximum speed and width for ``LnkSta``.
 
@@ -84,7 +84,7 @@ Similar to the previous section, you must next check the PCIe switches in your s
 2. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as previously demonstrated.
 
 Check Max Payload Size and Max Read Request
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------
 
 The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size of individual PCIe packets and the number of read requests permitted at once, respectively. To optimize bandwidth, ensure every GPU and NIC reports the maximum value for both attributes. 
 
@@ -122,12 +122,12 @@ The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size 
    Changes made with ``setpci`` are not persistent across reboots. This example uses a single NIC for simplicity, but in practice you must run the change for each NIC in the node.
 
 Validate NIC Configuration
---------------------------
+==========================
 
 After you've verified optimal PCIe speeds for all devices, configure your NICs according to best practices in the manufacturer or vendor documentation. This may already include some of the pre-assessment steps outlined in this guide and provide more hardware-specific tuning optimizations. 
 
 Vendor-specific NIC Tuning
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------
 
 Your NICs may require tuning if it has not already been done. Some steps differ based on the type of NIC you're deploying (InfiniBand or RoCE).
 
@@ -155,7 +155,7 @@ Your NICs may require tuning if it has not already been done. Some steps differ 
     All instructions for RoCE networks in this guide and additional guides are based on the v2 protocol.
 
 Check NIC link speed
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 Verify the NICs in your servers are reporting the correct speeds. Several commands and utilities are available to measure speed based on your network type.
 
@@ -170,7 +170,7 @@ Verify the NICs in your servers are reporting the correct speeds. Several comman
     - ibstat or ibstatus tells you if the link is up and the speed at which it is running for all HCAs in the server.
 
 Verify MOFED and Firmware Installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
 
 .. Note::
     This step is only necessary for InfiniBand networks.
@@ -178,7 +178,7 @@ Verify MOFED and Firmware Installation
 Download the latest version of `Mellanox OFED (MOFED) <https://docs.nvidia.com/networking/display/mlnxofedv461000/downloading+mellanox+ofed>`_ from Nvidia. Run the installer and flint tools to verify the latest version of MOFED and firmware is on the HCAs.
 
 Single Tier Switch Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------
 
 Take these actions on each single tier (leaf/edge) switch you plan to include in network testing.
 
@@ -189,7 +189,7 @@ Take these actions on each single tier (leaf/edge) switch you plan to include in
 5. Clear all port counters after the switch is ready to use.
 
 Set up a GPU Testing Environment
---------------------------------
+================================
 
 Next, create a testing environment to gather performance data for your GPUs. This requires installation of the following tools:
 
@@ -223,7 +223,7 @@ Next, create a testing environment to gather performance data for your GPUs. Thi
    ``sudo apt install rocm-bandwidth-test``
 
 Run ROCm Validation Suite (RVS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
 RVS contains many different tests, otherwise referred to as modules. The relevant tests for this guide are as follows:
 
@@ -300,7 +300,7 @@ You can run a specific RVS test by calling its configuration file with ``sudo /o
 
 
 Run TransferBench
-~~~~~~~~~~~~~~~~~
+-----------------
 
 TransferBench is a tool you can use to benchmark simultaneous transfers between CPU and GPU devices. To use, navigate to the installation folder (where you ran ``git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git`` in previous directions). Run the ``./TransferBench`` command to get a list of common commands, flags, and an overview of your CPU/GPU topology as detected by TransferBench.
 
@@ -380,7 +380,7 @@ Like RVS, TransferBench runs tests from configuration files. You can either run 
 If you want to define your own configuration file, run ``cat ~/TransferBench/examples/example.cfg`` to view an example configuration file with information on commands and arguments to run more granular testing. Running DMA tests between single pairs of devices is one helpful and common use-case for custom configuration files. See the `TransferBench documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_ for more information.
 
 Run ROCm Bandwidth Test (RBT)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 ROCm Bandwidth Test lets you identify performance characteristics for host-to-device (H2D), device-to-host (D2H), and device-to-device (D2D) buffer copies on a ROCm platform. This assists when looking for abnormalities and tuning performance.
 
@@ -573,7 +573,7 @@ Running a bidirectional benchmark on all available device combinations:
 For a more detailed explanation of different ways to run RBT, see the `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_.
 
 Configuration scripts
----------------------
+=====================
 
 Run these scripts where indicated to aid in the configuration and setup of your devices.
 

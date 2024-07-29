@@ -9,7 +9,7 @@ Multi node network configuration for AMD Instinct GPUs
 With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
 
 Evaluate platform-specific BIOS tunings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+========================================
 
 Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `MI200 Tuning Guide <https://rocm.docs.amd.com/en/latest/how_to/tuning_guides/mi200.html>`_ for more details.
 
@@ -23,9 +23,9 @@ Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `
 .. _OFED-Perftest-installation-and-benchmarking:
 
 OFED Perftest installation and benchmarking
--------------------------------------------
+============================================
 
-Install and run the `OFED performance tests <https://github.com/linux-rdma/perftest>` for host to host (H2H) testing. Loopback is implemented in the tests to remove the switch from benchmark results. Remember to install OFED Perfests on both nodes you plan to use in this section. Commands may require ``sudo`` depending on user privileges.
+Install and run the `OFED performance tests <https://github.com/linux-rdma/perftest>`_ for host to host (H2H) testing. Loopback is implemented in the tests to remove the switch from benchmark results. Remember to install OFED Perfests on both nodes you plan to use in this section. Commands may require ``sudo`` depending on user privileges.
 
 1. From the CLI of your host, run ``git clone https://github.com/linux-rdma/perftest.git``.
 
@@ -136,22 +136,22 @@ Consult this table for an explanation of flags used in the ``numactl`` examples 
 As servers typically have one NIC per GPU, you must change the device location frequently as you iterate through tests. 
 
 Run Multithreaded H2H Performance Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------
 
 You can multithread an OFED perftest by running it simultaneously on each NIC in the server. Use ``taskset`` to select a CPU core on the same NUMA domain as the NICs. Although testing the XGMI/Infinity Fabric link between CPUs is not a goal at this point, it's an option if preferred.
 
 Run Extended Multithreaded H2H Performance Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------------
 
 Run the previous test, but this time loop it and run it for a minimum of 8 hours. The goal is to stress the IO network on the fabric over a long period of time.
 
 Run Device-based (GPU) OFED Performance Tests
----------------------------------------------
+=============================================
 
 Once H2H performance is verified, you can run the OFED perftests again with GPU traffic included.
 
 Device-to-Device (D2D) RDMA benchmark
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------
 
 Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1, GPU2 to GPU3, and so on). 
 
@@ -214,7 +214,7 @@ In this example, localhost is used by the client to call the server. You may use
    If you run the test with different values for --use_rocm=# on the server and the client, the output will show results from whichever GPU is local to the node you're looking at. The tool is unable to show server and client simultaneously.
 
 H2D and D2H RDMA Benchmark
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------
 
 This is similar to the D2D test, but also includes the CPU on either the server or client side of the test-case scenarios. 
 
@@ -269,7 +269,7 @@ for a 2-CPU/8-GPU node you would have have 32 test scenarios per pairs of server
 To run this test, use a command similar to the example in the D2D benchmark, but only add the ``--use_rocm`` flag on either the server or client side so that one node communicates with the GPUs while the other does so with CPUs. Then run the test a second time with the ``use_rocm`` flag on the other side. Continue to use the most adjacent NIC to the GPU or CPU being tested so that communication doesn't run across the Infinity Fabric between CPUs (testing this isn't a goal at this time). 
 
 D2D RDMA Multithread Benchmark
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 
 For this test you must run the previous D2D benchmark simultaneously on all GPUs. Scripting is required to accomplish this, but the command input should resemble something like the following image with regard to your RDMA device naming scheme.
 
@@ -285,12 +285,12 @@ Important OFED perftest flags for this effort include:
    - ``--run_infinitely`` - Requires user to break the runtime, otherwise runs indefinitely. 
 
 D2D RDMA Multithread Extended Benchmark
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------
 
 Perform the D2D RDMA multithread benchmark again, but set the duration for a minimum of 8 hours.
 
 Install and configure AI/HPC workload environment 
--------------------------------------------------
+=================================================
 
 This section guides you through setting up the tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested.
 
@@ -302,13 +302,13 @@ You must install the following:
 * OSU Microbenchmarks (OMB) (with ROCM support)
 
 Install RCCL
-~~~~~~~~~~~~
+-------------
 
 RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl
 (RCCL does require ROCm to already be installed.)
 
 Install UCX
-~~~~~~~~~~~
+-------------
 
 UCX is used with MPI for communicating over different types of RDMA enabled interconnects like RoCE and InfiniBand. 
 
@@ -335,7 +335,7 @@ To run with UCC you must also add additional parameters.
    --mca coll_ucc_priority 100 -np 64 ./my_mpi_app
 
 Install and compile OpenMPI with UCX and UCC
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------
 
 .. code-block:: shell
 
@@ -351,7 +351,7 @@ Install and compile OpenMPI with UCX and UCC
    make -j 8 & make install
 
 Build RCCL collectives test
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 To more easily build and run the RCCL tests, review and implement the script provided in the drop-down. Otherwise, you can follow the steps to manually install at https://github.com/ROCm/rccl-tests. 
 
@@ -452,7 +452,7 @@ To more easily build and run the RCCL tests, review and implement the script pro
 .. Add or link to the RCCL config script once it's cleared for publication.
 
 Install OSU Microbenchmarks with ROCm support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------
 
 OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several installation methods to choose here. Review `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html#rocm-enabled-osu-benchmarks>`_ for instructions on installing OMB with OpenMPI, or follow the separate install instructions in this section.
 
@@ -474,7 +474,7 @@ OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several inst
    make install
 
 Build UCC Collective Test
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 Return to the location you cloned the source code for UCC previously. (It's goofy, but there is a chicken and the egg thing happening - you need to have UCC built and installed in order to get MPI built with support for it, then you need that MPI to get these tests compiled). Now that MPI is installed, you must run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest. 
 
@@ -488,7 +488,7 @@ Return to the location you cloned the source code for UCC previously. (It's goof
    sudo make install
 
 Running AI/HPC workloads
-------------------------
+========================
 
 Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed,  otherwise MPI will fail. 
 
