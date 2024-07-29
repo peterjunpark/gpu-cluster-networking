@@ -2,11 +2,41 @@
    :description: How to configure a single node for testing
    :keywords: network validation, DCGPU, single node, ROCm, RCCL, machine learning, LLM, usage, tutorial
 
-*****************************
-Single GPU Node Configuration
-*****************************
+********************************************************
+Single node network configuration for AMD Instinct GPUs
+********************************************************
 
-This chapter discusses how to set up a testing environment on a single GPU node and run benchmarks to simulate an HPC or AI/ML workload. As a prerequisition, you should have already completed the steps in the :doc:`Validating PCIe Performance <pcie-validation>` and :doc:`Validating NIC Performance <nic-validation>` chapters. 
+This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an HPC or AI/ML workload.
+
+Prerequisites
+-------------
+
+Before following steps in this guide, ensure you have performed these actions first:
+
+* Install system hardware.
+* Install OS and required software on each node:
+   * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+   * Install network drivers for NICs (add opensm if using InfiniBand).
+   * `Compile MPI with GPU support <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
+   * Build `RCCL tests <https://github.com/ROCm/rccl-tests>`_.
+   * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
+* Configure network.
+* Implement passwordless SSH.
+* Run the :ref:`disable ACS script<disable-acs-script>` for all devices that support it (must be done on each reboot). 
+* Add compute libraries (like OpenCL, HIP, and so on). Add headless graphics and multimedia permissions:
+
+   .. code-block:: shell
+
+       sudo usermod -a -G render $LOGNAME
+       sudo usermod -a -G video $LOGNAME       
+
+Best Practices
+~~~~~~~~~~~~~~
+
+Applications must be the same on every system. There are two ways to accomplish this: 
+
+1. Have an NFS mount available to all systems where the software is installed. 
+2. Make a system image with all the software installed. Note that you must re-image anytime there is a software change.
 
 Validate PCIe performance
 --------------------------

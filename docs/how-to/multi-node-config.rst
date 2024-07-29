@@ -2,11 +2,23 @@
    :description: How to configure multiple nodes for testing
    :keywords: network validation, DCGPU, multi node, ROCm, RCCL, machine learning, LLM, usage, tutorial
 
-***************************
-Mult GPU Node Configuration
-***************************
+******************************************************
+Multi node network configuration for AMD Instinct GPUs
+******************************************************
 
-With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this chapter require two nodes to run as client and server, so ensure you've already followed the single node configuration instructions on both.
+With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
+
+Evaluate platform-specific BIOS tunings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `MI200 Tuning Guide <https://rocm.docs.amd.com/en/latest/how_to/tuning_guides/mi200.html>`_ for more details.
+
+* Enable large bar addressing in the BIOS to support peer to peer GPU memory access.
+* Verify SRIOV is enabled, if needed.
+* Disable ACS (ACS forces P2P transactions through the PCIe root complex).
+
+.. Note::
+    If using virtual devices, AER and ACS should be enabled.
 
 .. _OFED-Perftest-installation-and-benchmarking:
 
@@ -31,8 +43,8 @@ Install and run the `OFED performance tests <https://github.com/linux-rdma/perft
 
 5. Repeat these steps on a second node connected to the same switch.
 
-Run Host to Host (H2H) Performance Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run Host to Host (H2H) Performance Tests (NIC-only)
+---------------------------------------------------
 
 Once installed, there are six main modules available with OFED Perftests:
 
@@ -43,7 +55,7 @@ Once installed, there are six main modules available with OFED Perftests:
 * ib_send_bw - Test bandwidth with send transactions.
 * ib_send_lat - Test latency with send transactions.
 
-The examples in this section use **ib_send_bw**, but you may accomplish similar with any other test you require. As the purpose of H2H is to test from CPU to CPU, avoid the ``use_rocm`` flag in these tests.
+The examples in this section use **ib_send_bw**, but you may accomplish similar with any other test you require. The goal of the tests in this section is to verify high speed data transfer rates between nodes prior to including GPU traffic, therefore ``use_rocm`` flag is avoided in all commands.
 
 1. Connect to the CLI of both nodes you installed the OFED perftests on.
 
@@ -92,7 +104,7 @@ Consult this table for an explanation of flags used in the ``numactl`` examples 
         - Description
 
       * - -d <IB/RoCE interface>
-        - Specifies a NIC to use. Ensure you use a NIC that is both adjacent to a GPU and not crossing NUMA domains or otherwise having to go back to the CPU. Tools like ``rocm-smi --showtopo`` and ``lstopo`` can help define which NICs are adjacent to which GPUs.
+        - Specifies a NIC to use. Ensure you use a NIC that is both adjacent to a GPU and not crossing NUMA domains or otherwise needing pass traffic between CPUs before egressing from the host. Tools like ``rocm-smi --showtopo`` and ``lstopo`` can help define which NICs are adjacent to which GPUs.
 
       * - -p <port #>
         -  Assign a port number to the server/client, when running simultaneously you must use different ports.
@@ -123,18 +135,6 @@ Consult this table for an explanation of flags used in the ``numactl`` examples 
 
 As servers typically have one NIC per GPU, you must change the device location frequently as you iterate through tests. 
 
-Evaluate platform-specific BIOS tunings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `MI200 Tuning Guide <https://rocm.docs.amd.com/en/latest/how_to/tuning_guides/mi200.html>`_ for more details.
-
-* Enable large bar addressing in the BIOS to support peer to peer GPU memory access.
-* Verify SRIOV is enabled, if needed.
-* Disable ACS (ACS forces P2P transactions through the PCIe root complex).
-
-.. Note::
-    If using virtual devices, AER and ACS should be enabled.
-
 Run Multithreaded H2H Performance Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -145,15 +145,13 @@ Run Extended Multithreaded H2H Performance Tests
 
 Run the previous test, but this time loop it and run it for a minimum of 8 hours. The goal is to stress the IO network on the fabric over a long period of time.
 
-Run single node OFED Performance Tests
---------------------------------------
+Run Device-based (GPU) OFED Performance Tests
+---------------------------------------------
 
-The next step is to run OFED perftests, which were installed in the :ref:`NIC validation<nic-validation>` chapter. The following examples below are run between two servers.
+Once H2H performance is verified, you can run the OFED perftests again with GPU traffic included.
 
-.. COMMENT: How is this single node if the rest are run between two nodes? Wouldn't that make it multinode? Need to understand the distinction.
-
-D2D RDMA benchmark
-~~~~~~~~~~~~~~~~~~
+Device-to-Device (D2D) RDMA benchmark
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1, GPU2 to GPU3, and so on). 
 
@@ -214,8 +212,6 @@ In this example, localhost is used by the client to call the server. You may use
 
 .. note::
    If you run the test with different values for --use_rocm=# on the server and the client, the output will show results from whichever GPU is local to the node you're looking at. The tool is unable to show server and client simultaneously.
-
-   .. COMMENT - Couldn't get this to work between nodes because of 'Unable to open file descriptor for socket connection' on port 18515. May be a firewall issue for canary nodes, ask brady.
 
 H2D and D2H RDMA Benchmark
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -291,12 +287,14 @@ Important OFED perftest flags for this effort include:
 D2D RDMA Multithread Extended Benchmark
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To run this test, follow the same instructions for D2D RDMA multithread benchmark, set the duration for a minimum of 8 hours.
+Perform the D2D RDMA multithread benchmark again, but set the duration for a minimum of 8 hours.
 
-Configuration Tool Setup 
--------------------------
+Install and configure AI/HPC workload environment 
+-------------------------------------------------
 
-For this section we need to install the following tools:
+This section guides you through setting up the tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested.
+
+You must install the following:
 
 * UCX & MPI (OpenMPI, MPICH, MVAPICH, CrayMPI)
 * RCCL Collectives Test
@@ -326,7 +324,7 @@ UCX is used with MPI for communicating over different types of RDMA enabled inte
    
    $ sudo make install
 
-Do not erase the source code folder after compiling and installing, as it's required to install the UCC collective tests later in this chapter.
+Do not erase the source code folder after compiling and installing, as it's required to install the UCC collective tests in a later section.
 
 To run with UCC you must also add additional parameters.
 
@@ -352,8 +350,8 @@ Install and compile OpenMPI with UCX and UCC
 
    make -j 8 & make install
 
-RCCL collectives test
-~~~~~~~~~~~~~~~~~~~~~
+Build RCCL collectives test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To more easily build and run the RCCL tests, review and implement the script provided in the drop-down. Otherwise, you can follow the steps to manually install at https://github.com/ROCm/rccl-tests. 
 
@@ -453,8 +451,8 @@ To more easily build and run the RCCL tests, review and implement the script pro
 
 .. Add or link to the RCCL config script once it's cleared for publication.
 
-OSU Microbenchmarks with ROCm support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Install OSU Microbenchmarks with ROCm support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several installation methods to choose here. Review `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html#rocm-enabled-osu-benchmarks>`_ for instructions on installing OMB with OpenMPI, or follow the separate install instructions in this section.
 
@@ -475,8 +473,8 @@ OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several inst
       
    make install
 
-UCC Collective Test
-~~~~~~~~~~~~~~~~~~~
+Build UCC Collective Test
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Return to the location you cloned the source code for UCC previously. (It's goofy, but there is a chicken and the egg thing happening - you need to have UCC built and installed in order to get MPI built with support for it, then you need that MPI to get these tests compiled). Now that MPI is installed, you must run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest. 
 
@@ -489,8 +487,8 @@ Return to the location you cloned the source code for UCC previously. (It's goof
    
    sudo make install
 
-Running the workloads
----------------------
+Running AI/HPC workloads
+------------------------
 
 Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed,  otherwise MPI will fail. 
 
@@ -539,13 +537,13 @@ To make use of the code that uses the GPU's or devices rather than the CPU, you 
 .. raw:: html
 
    <style>
-     #osu-commands-table tr td:last-child {
+     #osu-commands-table-d2d tr td:last-child {
        font-size: 0.9rem;
      }
    </style>
 
 .. container::
-   :name: osu-commands-table
+   :name: osu-commands-table-d2d
 
    .. list-table::
       :header-rows: 1
@@ -577,13 +575,13 @@ The biggest difference between the pt2pt benchmarks and the collective benchmark
 .. raw:: html
 
    <style>
-     #osu-commands-table tr td:last-child {
+     #coll-commands-table tr td:last-child {
        font-size: 0.9rem;
      }
    </style>
 
 .. container::
-   :name: osu-commands-table
+   :name: coll-commands-table
 
    .. list-table::
       :header-rows: 1
