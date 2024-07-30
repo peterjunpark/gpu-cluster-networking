@@ -471,12 +471,12 @@ OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several inst
 
    make -j 4
       
-   make install
+   sudo make install
 
 Build UCC Collective Test
 -------------------------
 
-Return to the location you cloned the source code for UCC previously. (It's goofy, but there is a chicken and the egg thing happening - you need to have UCC built and installed in order to get MPI built with support for it, then you need that MPI to get these tests compiled). Now that MPI is installed, you must run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest. 
+Return to the location you cloned the source code for UCC previously. Now that MPI is installed, you can run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest (this is done out-of-sequence because MPI wth UCC support requires UCC to be already be built, and is in turn a dependency for the UCC collective test). 
 
 .. code-block:: shell
 
@@ -490,7 +490,7 @@ Return to the location you cloned the source code for UCC previously. (It's goof
 Running AI/HPC workloads
 ========================
 
-Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed,  otherwise MPI will fail. 
+Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed, otherwise MPI will fail. 
 
 OMB has two main types of benchmarks: point to point (pt2pt) and collectives. Usually you start with a pair of nodes and run the pt2pt workloads. 
 
