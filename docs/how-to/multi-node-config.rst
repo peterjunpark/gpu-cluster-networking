@@ -8,8 +8,17 @@ Multi node network configuration for AMD Instinct GPUs
 
 With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
 
+Prerequisites
+=============
+
+* Install required software on each node:
+   * `Compile MPI with GPU support <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
+   * Build `RCCL tests <https://github.com/ROCm/rccl-tests>`_.
+   * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
+* Implement passwordless SSH.
+
 Evaluate platform-specific BIOS tunings
-========================================
+---------------------------------------
 
 Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `MI200 Tuning Guide <https://rocm.docs.amd.com/en/latest/how_to/tuning_guides/mi200.html>`_ for more details.
 
@@ -307,10 +316,10 @@ Install RCCL
 RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl
 (RCCL does require ROCm to already be installed.)
 
-Install UCX
+Install UCC
 -------------
 
-UCX is used with MPI for communicating over different types of RDMA enabled interconnects like RoCE and InfiniBand. 
+UCC is used with MPI for communicating over different types of RDMA enabled interconnects like RoCE and InfiniBand. 
 
 .. code-block:: shell
 
@@ -492,11 +501,14 @@ Running AI/HPC workloads
 
 Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed, otherwise MPI will fail. 
 
-OMB has two main types of benchmarks: point to point (pt2pt) and collectives. Usually you start with a pair of nodes and run the pt2pt workloads. 
+OMB has two main types of benchmarks: point to point (pt2pt) and collectives. In a typical use case, you start with a pair of nodes and run the pt2pt workloads. 
 
-Commands in the table below are for running on 2 nodes with Infiniband interconnect from Host to Host (CPU to CPU).
 
-.. QUESTION - Will these same commands work on RoCE?
+
+Point to Point (pt2pt) OSU Benchmarks
+-------------------------------------
+
+Commands in the table below must run on 2 nodes with RoCE or Infiniband interconnect from Host to Host (CPU to CPU). You can invoke the command from either node, but directories must mirror one another or the tests will hang.
 
 .. raw:: html
 
@@ -518,59 +530,26 @@ Commands in the table below are for running on 2 nodes with Infiniband interconn
         - Usage
 
       * - osu_bw
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw -d rocm
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw -d rocm
 
       * - osu_bibw
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bibw -d rocm 
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bibw -d rocm 
 
       * - osu_mbw_mr
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_mbw_mr -d rocm
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_mbw_mr -d rocm
 
       * - osu_latency
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency -d rocm
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency -d rocm
 
       * - osu_multi_lat
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm 
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm 
 
-To make use of the code that uses the GPU's or devices rather than the CPU, you must add a ``D D`` to the end of the command to go from device to device. Alternatively you can use ``D H`` to use device and host (GPU to CPU testing).
+You can change the communication mode from H2D by appending ``D D`` to the end of command for D2D, or ``D H`` for D2H.
 
-.. raw:: html
+Collective OSU Benchmarks
+-------------------------
 
-   <style>
-     #osu-commands-table-d2d tr td:last-child {
-       font-size: 0.9rem;
-     }
-   </style>
-
-.. container::
-   :name: osu-commands-table-d2d
-
-   .. list-table::
-      :header-rows: 1
-      :stub-columns: 1
-      :widths: 2 5
-
-      * - Command
-        - Usage
-
-      * - osu_bw
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw -d rocm D D
-
-      * - osu_bibw
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bibw -d rocm D D
-
-      * - osu_mbw_mr
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_mbw_mr -d rocm D D
-
-      * - osu_latency
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency -d rocm D D
-
-      * - osu_multi_lat
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm D D
-
-Performance for H2H and D2D should be similar.
-
-The biggest difference between the pt2pt benchmarks and the collective benchmarks is that you can add more than just a pair of communicating components. Collectives does support the use of multiple devices.
+The primary difference between the pt2pt and collective benchmarks is that collectives support the use of multiple (more than 2) devices.
 
 .. raw:: html
 
@@ -612,7 +591,7 @@ The biggest difference between the pt2pt benchmarks and the collective benchmark
 RCCL Test
 ---------
 
-RCCL Test is typically launched using MPI. You can use MPICH or openMPI. RCCL is a collective communication library optimized for collective operations for multi-GPU and multi-node communication primitives optimized for AMD GPUs.
+RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or openMPI as well. 
 
 .. Add output data when and if it's determined to be fit for public availability.
 

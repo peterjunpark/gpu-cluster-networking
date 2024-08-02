@@ -17,11 +17,7 @@ Before following steps in this guide, ensure you have performed these actions fi
 * Install OS and required software on each node:
    * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
    * Install network drivers for NICs (add opensm if using InfiniBand).
-   * `Compile MPI with GPU support <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
-   * Build `RCCL tests <https://github.com/ROCm/rccl-tests>`_.
-   * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
 * Configure network.
-* Implement passwordless SSH.
 * Run the :ref:`disable ACS script<disable-acs-script>` for all devices that support it (must be done on each reboot). 
 * Add compute libraries (like OpenCL, HIP, and so on). Add headless graphics and multimedia permissions:
 
