@@ -15,8 +15,9 @@ Before following steps in this guide, ensure you have performed these actions fi
 
 * Install system hardware.
 * Install OS and required software on each node:
-   * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
    * Install network drivers for NICs (add opensm if using InfiniBand).
+   * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+   * `Install RCCL <https://github.com/ROCm/rccl>_`.
 * Configure network.
 * Run the :ref:`disable ACS script<disable-acs-script>` for all devices that support it (must be done on each reboot). 
 * Add compute libraries (like OpenCL, HIP, and so on). Add headless graphics and multimedia permissions:
@@ -128,7 +129,7 @@ Vendor-specific NIC Tuning
 Your NICs may require tuning if it has not already been done. Some steps differ based on the type of NIC you're deploying (InfiniBand or RoCE).
 
 * Ensure :ref:`ACS is disabled<disable-acs-script>`.
-* For Mellanox NICs (HDR InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
+* For Mellanox NICs (InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
 
     .. code-block:: shell
 

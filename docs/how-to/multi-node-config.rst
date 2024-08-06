@@ -11,11 +11,8 @@ With single node configuration testing completed and verified, we can move on to
 Prerequisites
 =============
 
-* Install required software on each node:
-   * `Compile MPI with GPU support <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
-   * Build `RCCL tests <https://github.com/ROCm/rccl-tests>`_.
-   * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
-* Implement passwordless SSH.
+* Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
+* Implement passwordless SSH on all nodes planned for testing.
 
 Evaluate platform-specific BIOS tunings
 ---------------------------------------
@@ -305,7 +302,7 @@ This section guides you through setting up the tools necessary to simulate an AI
 
 You must install the following:
 
-* UCX & MPI (OpenMPI, MPICH, MVAPICH, CrayMPI)
+* UCC, UCX, & MPI (OpenMPI, MPICH, MVAPICH, CrayMPI)
 * RCCL Collectives Test
 * UCC Collectives test
 * OSU Microbenchmarks (OMB) (with ROCM support)
@@ -313,27 +310,71 @@ You must install the following:
 Install RCCL
 -------------
 
-RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl
-(RCCL does require ROCm to already be installed.)
+RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl.
 
-Install UCC
--------------
+Set up environment variables
+----------------------------
 
-UCC is used with MPI for communicating over different types of RDMA enabled interconnects like RoCE and InfiniBand. 
+For convenience and re-usage throughout the following installations, create environment variables for the directory where tools are installed and the directory where git repos and source files are downloaded. This guide uses `/opt` as the install directory for consistency, but you can choose another location if preferred.
+
+.. code-block:: shell
+  
+    export INSTALL_DIR=/opt
+    
+    export BUILD_DIR=/tmp/ompi_for_multinode_build
+    
+    mkdir -p $BUILD_DIR
+
+Install ROCm-enabled UCX and UCC
+--------------------------------
+
+Unified Communication Framework (UCX) is the standard communication library for RDMA over converged ethernet (RoCE) and InfiniBand networks. Unified Collective Communication (UCC) is a library that specializes in collective operations over the same network interconnects. These instructions demonstrate how to compile UCX and UCC with explicit support for ROCm to facilitate optimal data transfer rates in OpenMPI. 
 
 .. code-block:: shell
 
-   $ git clone https://github.com/openucx/ucc ; cd ucc
-    
-   $ ./autogen.sh
-   
-   $ ./configure --prefix=/opt/ucx/ucc --with-rocm=/opt/rocm --with-ucx=/opt/ucx
-   
-   $ make -j 8
-   
-   $ sudo make install
+    ## Compile UCX with ROCm support
 
-Do not erase the source code folder after compiling and installing, as it's required to install the UCC collective tests in a later section.
+    export UCX_DIR=$INSTALL_DIR/ucx
+
+    cd $BUILD_DIR
+
+    git clone https://github.com/openucx/ucx.git -b v1.15.x
+
+    cd ucx
+
+    ./autogen.sh
+
+    mkdir build
+
+    cd build
+
+    ./configure -prefix=$UCX_DIR --with-rocm=/opt/rocm
+
+    make -j 8
+
+    make install
+
+.. code-block:: shell
+
+    ## Compile UCC with ROCm support
+
+    export UCC_DIR=$INSTALL_DIR/ucc
+
+    cd $BUILD_DIR
+
+    git clone https://github.com/openucx/ucc.git -b v1.2.x
+    
+    cd ucc
+    
+    ./autogen.sh
+   
+    ./configure --prefix=$UCC_DIR --with-rocm=/opt/rocm --with-ucx=$UCX_DIR
+   
+    make -j 8
+   
+    make install
+
+Do not erase the source code folder for UCC after compiling and installing, as it's required to install the UCC collective tests in a later section.
 
 To run with UCC you must also add additional parameters.
 
@@ -346,18 +387,30 @@ To run with UCC you must also add additional parameters.
 Install and compile OpenMPI with UCX and UCC
 --------------------------------------------
 
+Build OpenMPI with UCX and UCC in addition to ROCm to ensure all libraries are leveraged correctly.
+
 .. code-block:: shell
 
-   git clone --recursive -b v4.1.x  https://github.com/open-mpi/ompi.git ; cd ompi
+  export OMPI_DIR=$INSTALL_DIR/ompi
+  
+   cd $BUILD_DIR
+
+   git clone --recursive -b v4.1.x  https://github.com/open-mpi/ompi.git 
+   
+   cd ompi
 
    ./autogen.pl
 
-   mkdir build ; cd build
+   mkdir build 
+   
+   cd build
 
-  ../configure --prefix=/opt/ompi --with-ucx=/opt/ucx --with-ucc=/opt/ucx/ucc \ 
+   ../configure --prefix=/opt/ompi --with-ucx=$UCX_DIR --with-ucc=$UCC_DIR --with-rocm=/opt/rocm \ 
    --enable-mca-no-build=btl-uct
 
-   make -j 8 & make install
+   make -j 8 
+   
+   make install
 
 Build RCCL collectives test
 ---------------------------
@@ -470,13 +523,17 @@ OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several inst
 
 .. code-block:: shell
 
+  export OSU_DIR=$INSTALL_DIR/osu
+  
+  cd $BUILD_DIR
+
    wget http://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-7.2.tar.gz
       
    tar zxvf osu-micro-benchmarks-7.2.tar.gz
       
    cd osu-micro-benchmarks-7.2/
 
-   ./configure --enable-rocm --with-rocm=/opt/rocm --prefix=/opt/omb7.2 CC=/opt/ompi/bin/mpicc CXX=/opt/ompi/bin/mpicxx CFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__" CXXFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__ -std=c++11"
+   ./configure --enable-rocm --with-rocm=/opt/rocm --prefix=$OSU_DIR CC=$OMPI_DIR/bin/mpicc CXX=$OMPI_DIR/bin/mpicxx CFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__" CXXFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__ -std=c++11"
 
    make -j 4
       
@@ -485,12 +542,12 @@ OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several inst
 Build UCC Collective Test
 -------------------------
 
-Return to the location you cloned the source code for UCC previously. Now that MPI is installed, you can run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest (this is done out-of-sequence because MPI wth UCC support requires UCC to be already be built, and is in turn a dependency for the UCC collective test). 
+Return to the location you cloned the source code for UCC previously. Now that MPI is installed, you can run the configure command and add ``--with-mpi=$OMPI_DIR`` so it builds the MPI perftest (this is done out-of-sequence because MPI wth UCC support requires UCC to be already be built, and is in turn a dependency for the UCC collective test). 
 
 .. code-block:: shell
 
    ./configure --prefix=/opt/ucx/ucc --with-rocm=/opt/rocm --with-ucx=/opt/ucx \
-   --with-mpi=/opt/ompi/
+   --with-mpi=$OMPI_DIR
 
    make -j 4
    
@@ -502,8 +559,6 @@ Running AI/HPC workloads
 Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed, otherwise MPI will fail. 
 
 OMB has two main types of benchmarks: point to point (pt2pt) and collectives. In a typical use case, you start with a pair of nodes and run the pt2pt workloads. 
-
-
 
 Point to Point (pt2pt) OSU Benchmarks
 -------------------------------------
@@ -530,19 +585,19 @@ Commands in the table below must run on 2 nodes with RoCE or Infiniband intercon
         - Usage
 
       * - osu_bw
-        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw -d rocm
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bw -d rocm
 
       * - osu_bibw
-        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bibw -d rocm 
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_bibw -d rocm 
 
       * - osu_mbw_mr
-        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_mbw_mr -d rocm
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_mbw_mr -d rocm
 
       * - osu_latency
-        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency -d rocm
+        - /$OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_latency -d rocm
 
       * - osu_multi_lat
-        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm 
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm 
 
 You can change the communication mode from H2D by appending ``D D`` to the end of command for D2D, or ``D H`` for D2H.
 
@@ -571,22 +626,22 @@ The primary difference between the pt2pt and collective benchmarks is that colle
         - Usage
 
       * - osu_allreduce
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
       
       * - osu_allreduce 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
 
       * - osu_alltoall
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
 
       * - osu_alltoall 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
 
       * - osu_allgather
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
       * - osu_allgather 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
+        - $OMPI_DIR/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc $OSU_DIR/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
 RCCL Test
 ---------
@@ -597,4 +652,4 @@ RCCL is a collective communication library optimized for collective operations b
 
 .. code-block:: shell
 
-  /opt/ompi/bin/mpirun -mca oob_tcp_if_exclude docker,lo -mca btl_tcp_if_exclude docker,lo -host gt-pl1-u19-08:8,gt-pl1-u19-18:8 -np 16 -x LD_LIBRARY_PATH=/opt/rccl/build/rccl/install/lib:/opt/ompi/lib -x NCCL_IB_GID_INDEX=3 -x NCCL_DEBUG=VERSION -x NCCL_IB_HCA=bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re6,bnxt_re7 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_MAX_NCHANNELS=64 -x NCCL_MIN_NCHANNELS=64 /opt/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1
+  $OMPI_DIR/bin/mpirun -np 16 -host <node-1>,<node-2>:8 -x NCCL_IB_PCI_RELAXED_ORDERING=1 -x HSA_DISABLE_CACHE=1 -x NCCL_IB_GID_INDEX=3 -x HSA_FORCE_FINE_GRAIN_PCIE=1 -x NCCL_ALGO=Ring -x NCCL_PROTO=Simple -x NCCL_NET_GDR_LEVEL=3 -x NCCL_ENABLE_DMABUF_SUPPORT=0 -x NCCL_DEBUG=Version --mca btl ^vader /path/to/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1 -c 0
