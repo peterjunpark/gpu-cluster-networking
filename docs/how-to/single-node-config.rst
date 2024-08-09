@@ -70,6 +70,9 @@ Check PCIe Device Speed and Width
    
 Verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
 
+.. note::
+   If you are running a cloud instance, hardware passthrough to your guest OS may not be accurate. Verify your ``lspci`` results with your cloud provider.
+
 Check PCIe Switch Speed and Width
 ---------------------------------
 

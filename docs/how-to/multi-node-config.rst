@@ -6,15 +6,14 @@
 Multi node network configuration for AMD Instinct GPUs
 ******************************************************
 
-With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
+With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured and verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
 
 Prerequisites
 =============
 
-* Install required software on each node:
-   * `Compile MPI with GPU support <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
-   * Build `RCCL tests <https://github.com/ROCm/rccl-tests>`_.
-   * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
+* Install all required sofware for MPI in the `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_ and .
+  * Specifically, follow the installation instructions for Open MPI, OSU benchmarks, and collective operations.
+* Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
 * Implement passwordless SSH.
 
 Evaluate platform-specific BIOS tunings
@@ -165,7 +164,7 @@ Device-to-Device (D2D) RDMA benchmark
 Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1, GPU2 to GPU3, and so on). 
 
 .. note::
-   If you have Mellanox/Nvidia NIC, be aware that the default OFED perftest installation doesn't include ROCm support. Follow the :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>` if you haven't done so already.
+   If you have Mellanox/Nvidia NICs, be aware that the default OFED perftest installation doesn't include ROCm support. Follow the :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>` if you haven't done so already.
 
 In this example, localhost is used by the client to call the server. You may use a specific IP address to ensure the network is tested. 
 
@@ -298,17 +297,10 @@ D2D RDMA Multithread Extended Benchmark
 
 Perform the D2D RDMA multithread benchmark again, but set the duration for a minimum of 8 hours.
 
-Install and configure AI/HPC workload environment 
-=================================================
+Build collective tests 
+======================
 
-This section guides you through setting up the tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested.
-
-You must install the following:
-
-* UCX & MPI (OpenMPI, MPICH, MVAPICH, CrayMPI)
-* RCCL Collectives Test
-* UCC Collectives test
-* OSU Microbenchmarks (OMB) (with ROCM support)
+This section guides you through setting up the remaining tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested. From the prerequisites you should already have installed UCX, UCC, MPI and the OSU benchmarks.
 
 Install RCCL
 -------------
@@ -316,53 +308,10 @@ Install RCCL
 RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl
 (RCCL does require ROCm to already be installed.)
 
-Install UCC
--------------
+Build RCCL collective test
+--------------------------
 
-UCC is used with MPI for communicating over different types of RDMA enabled interconnects like RoCE and InfiniBand. 
-
-.. code-block:: shell
-
-   $ git clone https://github.com/openucx/ucc ; cd ucc
-    
-   $ ./autogen.sh
-   
-   $ ./configure --prefix=/opt/ucx/ucc --with-rocm=/opt/rocm --with-ucx=/opt/ucx
-   
-   $ make -j 8
-   
-   $ sudo make install
-
-Do not erase the source code folder after compiling and installing, as it's required to install the UCC collective tests in a later section.
-
-To run with UCC you must also add additional parameters.
-
-.. code-block:: shell
-
-   mpirun --mca pml ucx --mca osc ucx \
-   --mca coll_ucc_enable 1     \
-   --mca coll_ucc_priority 100 -np 64 ./my_mpi_app
-
-Install and compile OpenMPI with UCX and UCC
---------------------------------------------
-
-.. code-block:: shell
-
-   git clone --recursive -b v4.1.x  https://github.com/open-mpi/ompi.git ; cd ompi
-
-   ./autogen.pl
-
-   mkdir build ; cd build
-
-  ../configure --prefix=/opt/ompi --with-ucx=/opt/ucx --with-ucc=/opt/ucx/ucc \ 
-   --enable-mca-no-build=btl-uct
-
-   make -j 8 & make install
-
-Build RCCL collectives test
----------------------------
-
-To more easily build and run the RCCL tests, review and implement the script provided in the drop-down. Otherwise, you can follow the steps to manually install at https://github.com/ROCm/rccl-tests. 
+To more easily build and run the RCCL collective tests, review and implement the script provided in the drop-down (the script also includes an option to install MPICH if needed). Otherwise, you can follow the steps to manually install at https://github.com/ROCm/rccl-tests. 
 
 .. dropdown:: build-and-run_rccl-tests_sweep_multinode.sh
 
@@ -460,55 +409,25 @@ To more easily build and run the RCCL tests, review and implement the script pro
 
 .. Add or link to the RCCL config script once it's cleared for publication.
 
-Install OSU Microbenchmarks with ROCm support
----------------------------------------------
+Run OSU Micro benchmarks
+=========================
 
-OSU Microbenchmarks (OMB) make use of MPI to communicate. There are several installation methods to choose here. Review `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html#rocm-enabled-osu-benchmarks>`_ for instructions on installing OMB with OpenMPI, or follow the separate install instructions in this section.
+Running the OSU Micro Benchmarks (OMB) with MPI simulates conditions similar to an AI/HPC workload over your cluster network. Successful MPI runs require that passwordless SSH be configured between all server pairs where OMB is installed and that they also be finger-printed, otherwise the runs fail. 
 
-.. Note::
-   When building OSU Benchmarks, there is a known issue where configuration will not work correctly with current versions of ROCm. As a workaround, use a configuration command (demonstrated below) that includes changes to the CFLAGS and CXXFLAGS. 
+This section covers the the two types of OMB: 
 
-.. code-block:: shell
+* Point to point (pt2pt) benchmarks test communication between one discrete component on a server (host or device) to another.
+* Collectives benchmarks support the use of multiple devices in a single run. 
 
-   wget http://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-7.2.tar.gz
-      
-   tar zxvf osu-micro-benchmarks-7.2.tar.gz
-      
-   cd osu-micro-benchmarks-7.2/
-
-   ./configure --enable-rocm --with-rocm=/opt/rocm --prefix=/opt/omb7.2 CC=/opt/ompi/bin/mpicc CXX=/opt/ompi/bin/mpicxx CFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__" CXXFLAGS="-g -O2 -D__HIP_PLATFORM_AMD__ -std=c++11"
-
-   make -j 4
-      
-   sudo make install
-
-Build UCC Collective Test
--------------------------
-
-Return to the location you cloned the source code for UCC previously. Now that MPI is installed, you can run the configure command and add `--with-mpi=/opt/ompi`` so it builds the MPI perftest (this is done out-of-sequence because MPI wth UCC support requires UCC to be already be built, and is in turn a dependency for the UCC collective test). 
-
-.. code-block:: shell
-
-   ./configure --prefix=/opt/ucx/ucc --with-rocm=/opt/rocm --with-ucx=/opt/ucx \
-   --with-mpi=/opt/ompi/
-
-   make -j 4
-   
-   sudo make install
-
-Running AI/HPC workloads
-========================
-
-Once installed and on both systems, running OMB requires passwordless ssh between the servers and they must also be finger-printed, otherwise MPI will fail. 
-
-OMB has two main types of benchmarks: point to point (pt2pt) and collectives. In a typical use case, you start with a pair of nodes and run the pt2pt workloads. 
-
-
+In a typical use case, you start with a pair of nodes and run the pt2pt benchmarks then move on to collectives. 
 
 Point to Point (pt2pt) OSU Benchmarks
 -------------------------------------
 
 Commands in the table below must run on 2 nodes with RoCE or Infiniband interconnect from Host to Host (CPU to CPU). You can invoke the command from either node, but directories must mirror one another or the tests will hang.
+
+.. note::
+   The paths for the MPI and OMB commands presume both are installed in the ``/opt`` directory. Installation paths for your environment may be different and should be updated accordingly.  
 
 .. raw:: html
 
@@ -544,7 +463,7 @@ Commands in the table below must run on 2 nodes with RoCE or Infiniband intercon
       * - osu_multi_lat
         - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host <node1-IP>,<node2-IP> -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/omb7.2/libexec/osu-micro-benchmarks/mpi/pt2pt/osu_multi_lat -d rocm 
 
-You can change the communication mode from H2D by appending ``D D`` to the end of command for D2D, or ``D H`` for D2H.
+The default communication mode is host to host, but you can change this by appending ``D D`` to the end of command for device to device, or ``D H`` for device to host (and vice-versa).
 
 Collective OSU Benchmarks
 -------------------------
@@ -571,25 +490,25 @@ The primary difference between the pt2pt and collective benchmarks is that colle
         - Usage
 
       * - osu_allreduce
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
       
       * - osu_allreduce 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allreduce -d rocm D D
 
       * - osu_alltoall
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
 
       * - osu_alltoall 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_alltoall -d rocm D D
 
       * - osu_allgather
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 2 -host 10.1.10.110,10.1.10.72 -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
       * - osu_allgather 2N 16Proc
-        - /opt/ompi-wIB/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
+        - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
-RCCL Test
----------
+RCCL Collective Benchmark
+-------------------------
 
 RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or openMPI as well. 
 
