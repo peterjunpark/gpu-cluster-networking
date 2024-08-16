@@ -16,3 +16,4 @@ AMD Instinct™ systems come in many shapes and sizes, and cluster design adds y
 
 - :doc:`Single node network configuration for AMD Instinct GPUs<how-to/single-node-config>`
 - :doc:`Multi node network configuration for AMD Instinct GPUs<how-to/multi-node-config>`
+- :doc:`RoCE Configuration Guide for Cluster Networking<how-to/roce-config>`
