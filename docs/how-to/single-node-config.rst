@@ -6,114 +6,123 @@
 Single node network configuration for AMD Instinct GPUs
 ********************************************************
 
-This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an HPC or AI/ML workload.
+This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an an AI/HPC workload.
 
 Prerequisites
 =============
 
-Before following steps in this guide, ensure you have performed these actions first:
+Before following the steps in this guide, ensure you have performed these actions first:
 
 * Install system hardware.
+
 * Install OS and required software on each node:
-   * Install network drivers for NICs (add opensm if using InfiniBand).
-   * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
-   * `Install RCCL <https://github.com/ROCm/rccl>_`.
+  
+  * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+  
+  * Install network drivers for NICs (add opensm if using InfiniBand).
+
 * Configure network.
+
 * Run the :ref:`disable ACS script<disable-acs-script>` for all devices that support it (must be done on each reboot). 
+
 * Add compute libraries (like OpenCL, HIP, and so on). Add headless graphics and multimedia permissions:
 
-   .. code-block:: shell
+  .. code-block:: shell
 
-       sudo usermod -a -G render $LOGNAME
-       sudo usermod -a -G video $LOGNAME       
+      sudo usermod -a -G render $LOGNAME
+      sudo usermod -a -G video $LOGNAME       
 
 Best Practices
 --------------
 
 Applications must be the same on every system. There are two ways to accomplish this: 
 
-1. Have an NFS mount available to all systems where the software is installed. 
-2. Make a system image with all the software installed. Note that you must re-image anytime there is a software change.
+#. Have an NFS mount available to all systems where the software is installed. 
+
+#. Make a system image with all the software installed. Note that you must re-image anytime there is a software change.
 
 Validate PCIe performance
 =========================
 
-This section demonstrates how to verify all network devices and GPU devices are using the maximum available transfer speed and width in their respective PCIe bus.
+Checking that your relevant PCIe devices (GPUs, NICs, and internal switches) are using the maximum available transfer speed and width in their respective bus keeps you from having to troubleshoot any related issues in subsequent testing where it may not be obvious. As a best practice, it's helpful to gather all the PCIe addresses for your GPUs, NICs, and switches in advance and document them so that you don't need to do it while following these steps.
 
 Check PCIe Device Speed and Width
 ---------------------------------
 
-1. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
+#. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
 
-2. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and width of your device. This example shows the speed and width for a GPU at the address ``02:00.0``. 
+#. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and width of your device. This example shows the speed and width for a GPU at the address ``02:00.0``. 
 
    .. code-block:: shell
 
-      $ sudo lspci -s 02:00.0 -vvv | grep Speed
+      sudo lspci -s 02:00.0 -vvv | grep Speed
 
-      LnkCap: Port #0, Speed 32GT/s, Width x16, ASPM L0s L1, Exit Latency L0s <64ns, L1 <1us
-      LnkSta: Speed 32GT/s (ok), Width x16 (ok)
+         LnkCap: Port #0, Speed 32GT/s, Width x16, ASPM L0s L1, Exit Latency L0s <64ns, L1 <1us
+         LnkSta: Speed 32GT/s (ok), Width x16 (ok)
 
    The maximum supported speed of the GPU is reported in ``LnkCap`` along with a width of x16. Current status is shown in ``LnkSta`` and we can see both speed and width are aligned. Your values may differ depending on your hardware.
 
-3. Query and validate all GPUs in your node with the previous steps.
+#. Query and validate all GPUs in your node with the previous steps.
 
-4. Gather the PCI addresses for your NICs and validate them next. See this example from a NIC running at ``05:00.0``:
+#. Gather the PCI addresses for your NICs and validate them next. See this example from a NIC running at ``05:00.0``:
 
    .. code-block:: shell
 
-         $ sudo lspci -s 05:00.0 -vvv | grep Speed
+         sudo lspci -s 05:00.0 -vvv | grep Speed
             
-         LnkCap: Port #0, Speed 16GT/s, Width x16, ASPM not supported
-         LnkSta: Speed 16GT/s (ok), Width x16 (ok)
+            LnkCap: Port #0, Speed 16GT/s, Width x16, ASPM not supported
+            LnkSta: Speed 16GT/s (ok), Width x16 (ok)
 
    Here, the NIC is running at a speed of 16GT/s. However, since the NIC configuration only supports PCIe Gen4 speeds this is an expected value. 
    
-Verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
+Once you verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
+
+.. note::
+   If you are running a cloud instance, hardware passthrough to your guest OS may not be accurate. Verify your ``lspci`` results with your cloud provider.
 
 Check PCIe Switch Speed and Width
 ---------------------------------
 
 Similar to the previous section, you must next check the PCIe switches in your system to ensure they're reporting the maximum speed and width for ``LnkSta``.
 
-1. Run ``lspci -vv`` and ``lspci -tv`` to identify PCIe switch locations on the server.
+#. Run ``lspci -vv`` and ``lspci -tv`` to identify PCIe switch locations on the server.
 
-2. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as previously demonstrated.
+#. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as previously demonstrated.
 
 Check Max Payload Size and Max Read Request
 -------------------------------------------
 
 The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size of individual PCIe packets and the number of read requests permitted at once, respectively. To optimize bandwidth, ensure every GPU and NIC reports the maximum value for both attributes. 
 
-1. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max payload size and max read request. Here is an example using the same NIC as before.
+#. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max payload size and max read request. Here is an example using the same NIC as before.
 
    .. code-block:: shell
 
-      $ sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
+      sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
 
-      DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
-               ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset+ SlotPowerLimit 40.000W
-      DevCtl: CorrErr+ NonFatalErr+ FatalErr+ UnsupReq-
-               RlxdOrd+ ExtTag+ PhantFunc- AuxPwr+ NoSnoop+ FLReset-
-               MaxPayload 512 bytes, MaxReadReq 4096 bytes
+         DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
+                  ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset+ SlotPowerLimit 40.000W
+         DevCtl: CorrErr+ NonFatalErr+ FatalErr+ UnsupReq-
+                  RlxdOrd+ ExtTag+ PhantFunc- AuxPwr+ NoSnoop+ FLReset-
+                  MaxPayload 512 bytes, MaxReadReq 4096 bytes
 
-2. ``MaxReadRequest`` is unique in that it can be changed during runtime with the ``setpci`` command. If your value here is lower than expected, you can correct it as follows:
+#. ``MaxReadRequest`` is unique in that it can be changed during runtime with the ``setpci`` command. If your value here is lower than expected, you can correct it as follows:
 
    .. code-block:: shell
 
-      $ sudo lspci -vvvs a1:00.0 | grep axReadReq     
+      sudo lspci -vvvs a1:00.0 | grep axReadReq     
       
-      MaxPayload 512 bytes, MaxReadReq 512 bytes
+         MaxPayload 512 bytes, MaxReadReq 512 bytes
       
-      $ sudo setpci -s a1:00.0 68.w
+      sudo setpci -s a1:00.0 68.w
       
-      295e
+         295e
       
-      $ sudo setpci -s a1:00.0 68.w=595e
+      sudo setpci -s a1:00.0 68.w=595e
       
-      $ sudo lspci -vvvs a1:00.0 | grep axReadReq
+      sudo lspci -vvvs a1:00.0 | grep axReadReq
       
-      MaxPayload 512 bytes, MaxReadReq 4096 bytes
+         MaxPayload 512 bytes, MaxReadReq 4096 bytes
 
 .. note::
    Changes made with ``setpci`` are not persistent across reboots. This example uses a single NIC for simplicity, but in practice you must run the change for each NIC in the node.
@@ -129,23 +138,25 @@ Vendor-specific NIC Tuning
 Your NICs may require tuning if it has not already been done. Some steps differ based on the type of NIC you're deploying (InfiniBand or RoCE).
 
 * Ensure :ref:`ACS is disabled<disable-acs-script>`.
-* For Mellanox NICs (InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
 
-    .. code-block:: shell
+* For Mellanox NICs (HDR InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
 
-        $ sudo mst start
-        
-        $ sudo mst status
-        
-        $ sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
-        
-        $ sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
-        
-        $ sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
-        
-        $ reboot
+  .. code-block:: shell
+
+      sudo mst start
+      
+      sudo mst status
+      
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
+      
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
+      
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
+      
+      reboot
 
 * For Broadcom NICs, ensure RoCE is enabled and consider disabling any unused ports. See the :ref:`Broadcom RoCE configuration scripts<RoCE-configuration-script-for-Broadcom-Thor-NIC>` for more details.
+
 * Ensure Relaxed Ordering is enabled in the PCIe settings for your system BIOS as well.
 
 .. Note::
@@ -157,14 +168,12 @@ Check NIC link speed
 Verify the NICs in your servers are reporting the correct speeds. Several commands and utilities are available to measure speed based on your network type.
 
 * RoCE / Ethernet
-
-    - sudo ethtool <interface> | grep -i speed
-    - cat /sys/class/net/<interface>/speed
+   - sudo ethtool <interface> | grep -i speed
+   - cat /sys/class/net/<interface>/speed
 
 * InfiniBand
-
-    - ibdiagnet provides an output of the entire fabric in the default log files. You can verify link speeds here.
-    - ibstat or ibstatus tells you if the link is up and the speed at which it is running for all HCAs in the server.
+   - ibdiagnet provides an output of the entire fabric in the default log files. You can verify link speeds here.
+   - ibstat or ibstatus tells you if the link is up and the speed at which it is running for all HCAs in the server.
 
 Verify MOFED and Firmware Installation
 --------------------------------------
@@ -188,11 +197,7 @@ Take these actions on each single tier (leaf/edge) switch you plan to include in
 Set up a GPU Testing Environment
 ================================
 
-Next, create a testing environment to gather performance data for your GPUs. This requires installation of the following tools:
-
- * ROCm Validation Suite (RVS)
- * TransferBench
- * ROCm Bandwidth Test (RBT)
+Next, create a testing environment to gather performance data for your GPUs. This requires installation of ROCm Validation Suite (RVS), TransferBench, and ROCm Bandwidth Test (RBT).
 
 1. Connect to the CLI of your GPU node.
 
@@ -217,7 +222,9 @@ Next, create a testing environment to gather performance data for your GPUs. Thi
 
 4. Install ROCm Bandwidth Test from CLI.
 
-   ``sudo apt install rocm-bandwidth-test``
+   .. code-block:: shell
+      
+      sudo apt install rocm-bandwidth-test
 
 Run ROCm Validation Suite (RVS)
 -------------------------------
@@ -299,7 +306,7 @@ You can run a specific RVS test by calling its configuration file with ``sudo /o
 Run TransferBench
 -----------------
 
-TransferBench is a tool you can use to benchmark simultaneous transfers between CPU and GPU devices. To use, navigate to the installation folder (where you ran ``git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git`` in previous directions). Run the ``./TransferBench`` command to get a list of common commands, flags, and an overview of your CPU/GPU topology as detected by TransferBench.
+TransferBench is a tool you can use to benchmark simultaneous transfers between CPU and GPU devices. To use, navigate to the TransferBench installation folder (the folder created when you ran ``git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git`` in previous directions). Run the ``./TransferBench`` command to get a list of common commands, flags, and an overview of your CPU/GPU topology as detected by TransferBench.
 
 Like RVS, TransferBench runs tests from configuration files. You can either run one of several preset configuration files or define your own. A useful all-around test to run is ``p2p``, which tests the unidirectional and bidirectional transfer rates on all CPUs and GPUs detected by TransferBench. See the example below for the output of this test on a 2-CPU, 8-GPU node with 4 MB transfer packets.
 
@@ -385,7 +392,7 @@ Run ``/opt/rocm/bin/rocm-bandwidth-test -h`` to get a help screen with available
 
 .. code-block:: shell
 
-   $ /opt/rocm/bin/rocm-bandwidth-test -h
+   /opt/rocm/bin/rocm-bandwidth-test -h
       
    Supported arguments:
 
@@ -417,7 +424,7 @@ Getting a list of all ROCm-detected devices:
 
 .. code-block:: shell
 
-   $ /opt/rocm/bin/rocm-bandwidth-test -e
+   /opt/rocm/bin/rocm-bandwidth-test -e
 
       RocmBandwidthTest Version: 2.6.0
 
@@ -502,7 +509,7 @@ Running a unidirectional benchmark between devices 0 (CPU) and 4 (GPU):
 
 .. code-block:: shell
 
-   $ /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
+   /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
    ........................................
             RocmBandwidthTest Version: 2.6.0
 
@@ -540,7 +547,7 @@ Running a bidirectional benchmark on all available device combinations:
 
 .. code-block:: shell
 
-   $ /opt/rocm/bin/rocm-bandwidth-test -A
+   /opt/rocm/bin/rocm-bandwidth-test -A
 
    <SNIP>……   
    Bidirectional copy peak bandwidth GB/s
