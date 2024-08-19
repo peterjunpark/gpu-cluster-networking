@@ -9,3 +9,5 @@ subtrees:
     title: Single Node Networking
   - file: how-to/multi-node-config
     title: Multi Node Networking
+  - file: how-to/roce-config
+    title: RoCE Configuration
