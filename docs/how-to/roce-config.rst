@@ -6,7 +6,7 @@
 RoCE Configuration Guide for Cluster Networking
 ***********************************************
 
-RDMA over Converged Ethernet (RoCE) networks allow for speeds comparable to InfiniBand when running AI/HPC workloads, provided that the correct configuration steps have been taken on both individual NICs and switches.
+RDMA over Converged Ethernet (RoCE) networks allow for speeds comparable to InfiniBand when running AI/HPC workloads, provided that the correct configuration steps have been taken on both individual NICs and switches. This guide provides instruction on how to appropriately configure your network for RoCE at the NIC and switch level and how to mitigate MAC address mismatches (ARP flux) that can affect nodes with multiple NICs when establishing RDMA sessions.
 
 NIC Configuration
 =================
@@ -16,7 +16,7 @@ The specific steps to configure your NIC for RoCE support differ based on the NI
 * Install or update the NIC driver and firmware.
   
   .. note::
-     The latest driver for a NIC may require a Linux kernel that is not yet support by the AMD ROCm/amdgpu software stack. Before updating, review the `supported operating systems for ROCm https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html#supported-operating-systems_` verify the driver kernel is one supported by the version of ROCm you have installed.
+     The latest driver for a NIC may require a Linux kernel that is not yet support by the AMD ROCm/amdgpu software stack. Before updating, review the `supported operating systems for ROCm <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html#supported-operating-systems>`_ verify the driver kernel is one supported by the version of ROCm you have installed.
 
 * Enable RoCE, PFC, ECN, set proper speed for the NIC port(s), and other vendor-suggested NIC features.
 
@@ -77,11 +77,7 @@ Switch configuration steps also differ based on manufacturer, but in general you
 
       To exit configuration mode, run the ``exit`` command.
 
-#. Set interfaces to use extended naming ("Eth1/1", "Eth1/2", and so on).
-
-   .. note::
-         
-      The use of ``write memory`` makes the configuration change permanent (persists through switch reboots).
+#. Set interfaces to use extended naming (``Eth1/1``, ``Eth1/2``, and so on). The use of ``write memory`` in the example makes the configuration change permanent (persists through switch reboots).      
 
    .. code-block:: shell
 
@@ -126,7 +122,7 @@ Switch configuration steps also differ based on manufacturer, but in general you
 
 #. Configure links on the switch.
 
-   #. For switch ports that connect to other switches, run the ``no shutdown`` command to bring them online, then ensure link training is disabled with the ``no standalone-link-training`` command. The following example demonstrates the configuration of 32 ports (port 1 to port 32) oo a leaf switch that connects to an upper spine switch.
+   #. For switch ports that connect to other switches, run the ``no shutdown`` command to bring them online, then ensure link training is disabled with the ``no standalone-link-training`` command. The following example demonstrates the configuration of 32 ports (port 1 to port 32) too a leaf switch that connects to an upper spine switch.
 
       .. code-block:: shell
          
