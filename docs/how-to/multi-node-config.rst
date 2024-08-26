@@ -8,12 +8,14 @@ Multi node network configuration for AMD Instinct GPUs
 
 With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured and verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
 
+.. _Multinode-Prerequisites:
+
 Prerequisites
 =============
 
 Before following the steps in this guide, ensure you have performed these actions first:
 
-* Install all required sofware for MPI in the `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
+* Install all required software for MPI in the `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
   
   * Specifically, follow the installation instructions for Open MPI, OSU benchmarks, and collective operations.
 
@@ -24,7 +26,7 @@ Before following the steps in this guide, ensure you have performed these action
 Evaluate platform-specific BIOS tunings
 ---------------------------------------
 
-Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `MI200 Tuning Guide <https://rocm.docs.amd.com/en/latest/how_to/tuning_guides/mi200.html>`_ for more details.
+Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `AMD Instinct Optimization Guides <https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html>`_ for more details.
 
 * Enable large bar addressing in the BIOS to support peer to peer GPU memory access.
 * Verify SRIOV is enabled, if needed.
@@ -32,6 +34,21 @@ Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `
 
 .. Note::
     If using virtual devices, AER and ACS should be enabled.
+
+Single Tier Switch Configuration
+--------------------------------
+
+Take these actions on each single tier (leaf/edge) switch you plan to include in network testing.
+
+#. Configure remote access to the switch management console.
+
+#. Verify the switch sees all hosts and ports are active.
+
+#. For an InfiniBand switch, configure Fabric Manager on the switch or start OpenSM on a host in the network if a subnet manager isn't already in place.
+
+#. For an ethernet switch, configure MTU size and priority flow control (PFC) and ECN support as needed.
+
+#. Clear all port counters after the switch is ready to use.
 
 .. _OFED-Perftest-installation-and-benchmarking:
 
@@ -73,25 +90,27 @@ The examples in this section use ib_send_bw, but you may accomplish similar with
 Run H2H RDMA Benchmark
 -----------------------
 
-To run the OFED Perftest, establish an SSH connection to both nodes you installed the OFED perftests on.
+To run the OFED perftest, establish an SSH connection to both nodes you installed the OFED perftests on.
 
 #. Initiate a server connection on the first node:
 
-   .. code-block:: shell
+    .. code-block:: shell
+        
+        $ cd perftest   #if not already in directory
+        
+        $ numactl -C 1 ./ib_send_bw -a -F -d <IB/RoCE interface>
       
-      cd perftest   #if not already in directory
-      numactl -C 1 ./ib_send_bw -a -F -d <IB/RoCE interface>
-    
-      ************************************
-      * Waiting for client to connect... *
-      ************************************
+        ************************************
+        * Waiting for client to connect... *
+        ************************************
 
 #. Initiate a client connection on the second node:
 
-   .. code-block:: shell
+    .. code-block:: shell
 
-      cd perftest   #if not already in directory
-      numactl -C 1 ./ib_send_bw <node1 IP> -a -F -d <IB/RoCE interface>
+        $ cd perftest   #if not already in directory
+        
+        $ numactl -C 1 ./ib_send_bw <node1 IP> -a -F -d <IB/RoCE interface>
 
 #. Test should run and complete in several moments.
       
@@ -307,18 +326,17 @@ Important OFED perftest flags for this effort include:
 D2D RDMA Multithread Extended Benchmark
 ---------------------------------------
 
-Perform the D2D RDMA multithread benchmark again, but set the duration for a minimum of 8 hours.
+Perform the D2D RDMA multithread benchmark again but set the duration for a minimum of 8 hours.
 
 Build collective tests 
 ======================
 
-This section guides you through setting up the remaining tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested. From the prerequisites you should already have installed UCX, UCC, MPI and the OSU benchmarks.
+This section guides you through setting up the remaining tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested. Per the :ref:`prerequisites<Multinode-Prerequisites>`, UCX, UCC, MPI and the OSU benchmarks must already be installed.
 
 Install RCCL
 -------------
 
-RCCL is likely already installed on your nodes, but you can build the latest version from source at https://github.com/ROCm/rccl
-(RCCL does require ROCm to already be installed.)
+RCCL is likely already installed as part of ROCm on your compute nodes. Sometimes newer features and fixes might be available in the latest version of RCCL, which you can build from source at https://github.com/ROCm/rccl.
 
 Build RCCL Collective Test
 --------------------------
@@ -520,8 +538,11 @@ Collective OSU Benchmarks
 RCCL Collective Benchmark
 -------------------------
 
-RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or openMPI as well. 
+RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD Instinct GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or Open MPI as well. 
 
-.. code-block:: shell
-  
-  /opt/ompi/bin/mpirun -mca oob_tcp_if_exclude docker,lo -mca btl_tcp_if_exclude docker,lo -host gt-pl1-u19-08:8,gt-pl1-u19-18:8 -np 16 -x LD_LIBRARY_PATH=/opt/rccl/build/rccl/install/lib:/opt/ompi/lib -x NCCL_IB_GID_INDEX=3 -x NCCL_DEBUG=VERSION -x NCCL_IB_HCA=bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re6,bnxt_re7 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_MAX_NCHANNELS=64 -x NCCL_MIN_NCHANNELS=64 /opt/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1
+.. list-table::
+   :stub-columns: 1
+   :widths: 2 5
+
+   * - RCCL with MPI
+     - /opt/ompi/bin/mpirun -mca oob_tcp_if_exclude docker,lo -mca btl_tcp_if_exclude docker,lo -host {HOST1}:8,{HOST2}:8 -np 16 -x LD_LIBRARY_PATH=/opt/rccl/build/rccl/install/lib:/opt/ompi/lib -x NCCL_IB_GID_INDEX=3 -x NCCL_DEBUG=VERSION -x NCCL_IB_HCA=bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re6,bnxt_re7 -x NCCL_IGNORE_CPU_AFFINITY=1 /opt/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1
