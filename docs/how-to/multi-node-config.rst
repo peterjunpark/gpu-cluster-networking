@@ -546,3 +546,14 @@ RCCL is a collective communication library optimized for collective operations b
 
    * - RCCL with MPI
      - /opt/ompi/bin/mpirun -mca oob_tcp_if_exclude docker,lo -mca btl_tcp_if_exclude docker,lo -host {HOST1}:8,{HOST2}:8 -np 16 -x LD_LIBRARY_PATH=/opt/rccl/build/rccl/install/lib:/opt/ompi/lib -x NCCL_IB_GID_INDEX=3 -x NCCL_DEBUG=VERSION -x NCCL_IB_HCA=bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re6,bnxt_re7 -x NCCL_IGNORE_CPU_AFFINITY=1 /opt/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1
+
+Reference Documentation
+=======================
+
+* `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
+
+* `Slurm Workload Manager Documentation <https://slurm.schedmd.com/documentation.html>`_
+
+* `OFED Performance Test ReadMe <https://github.com/linux-rdma/perftest>`_
+
+* `RCCL Test Build Instructions <https://github.com/ROCm/rccl-tests>`_

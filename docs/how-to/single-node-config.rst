@@ -759,5 +759,19 @@ Run these scripts where indicated to aid in the configuration and setup of your 
 
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name performance_profile -value 1); done
 
+Reference Documentation
+=======================
 
+* `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
 
+* `ROCm installation for Linux <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/index.html>`_
+
+* `Nvidia MLNX_OFED Documentation <https://docs.nvidia.com/networking/display/mlnxofedv461000>`_
+
+* `ROCm Validation Suite Documentation <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/index.html>`_
+
+* `TransferBench Documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_
+
+* `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_
+
+* `Broadcom Ethernet Network Adapter User Guide <https://techdocs.broadcom.com/us/en/storage-and-ethernet-connectivity/ethernet-nic-controllers/bcm957xxx/adapters.html>`_
