@@ -557,3 +557,9 @@ Reference Documentation
 * `OFED Performance Test ReadMe <https://github.com/linux-rdma/perftest>`_
 
 * `RCCL Test Build Instructions <https://github.com/ROCm/rccl-tests>`_
+
+Resources and Helpful Links
+===========================
+
+* `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
+* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>_`

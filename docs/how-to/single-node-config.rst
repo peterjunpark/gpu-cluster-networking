@@ -775,3 +775,9 @@ Reference Documentation
 * `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_
 
 * `Broadcom Ethernet Network Adapter User Guide <https://techdocs.broadcom.com/us/en/storage-and-ethernet-connectivity/ethernet-nic-controllers/bcm957xxx/adapters.html>`_
+
+Resources and Helpful Links
+===========================
+
+* `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
+* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>_`
