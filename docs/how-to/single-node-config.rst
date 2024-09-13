@@ -6,31 +6,32 @@
 Single node network configuration for AMD Instinct GPUs
 ********************************************************
 
-This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an an AI/HPC workload.
+This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an AI/HPC workload.
 
 Prerequisites
 =============
 
 Before following the steps in this guide, ensure you have performed these actions first:
 
-* Install system hardware.
+* Install GPU and network hardware.
 
-* Install OS and required software on each node:
+* Install OS and required GPU and network software on each node:
   
-  * `Install RoCM <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+  * `Install ROCm <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
   
   * Install network drivers for NICs (add opensm if using InfiniBand).
 
 * Configure network.
 
-* Run the :ref:`disable ACS script<disable-acs-script>` for all devices that support it (must be done on each reboot). 
+* Configure system BIOS and OS settings according to the `system optimization guide <https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html>`_ for your architecture (MI300, MI200, and so on).
 
-* Add compute libraries (like OpenCL, HIP, and so on). Add headless graphics and multimedia permissions:
+* Disable NUMA Balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and confirm that 0 is returned.
 
-  .. code-block:: shell
+* Run the :ref:`disable ACS script<disable-acs-script>` to disable PCI ACS (Access Control Services) on all PCIe devices that support it (must be done on each reboot). 
 
-      sudo usermod -a -G render $LOGNAME
-      sudo usermod -a -G video $LOGNAME       
+* Add the ``iommu=pt``parameter to ``GRUB_CMDLINE_LINUX_DEFAULT`` in ``/etc/default/grub``, then run ``sudo update-grub`` and reboot. See `ROCm troubleshooting <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/reference/install-faq.html#issue-5-application-hangs-on-multi-gpu-systems>`_ for more information.
+
+* Verify your user belongs to the ``render`` and ``video`` groups as specified in the `group permission settings <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/prerequisites.html#setting-permissions-for-groups>`_ for ROCm installation.
 
 Best Practices
 --------------
@@ -51,14 +52,24 @@ Check PCIe Device Speed and Width
 
 #. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
 
-#. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and width of your device. This example shows the speed and width for a GPU at the address ``02:00.0``. 
+#. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and width of your device. This example shows the speed and width for a GPU at the address ``02:00.0``.
 
-   .. code-block:: shell
+   .. tab-set::
 
-      sudo lspci -s 02:00.0 -vvv | grep Speed
+      .. tab-item:: Shell Output                       
+            
+         .. code-block:: shell
 
-         LnkCap: Port #0, Speed 32GT/s, Width x16, ASPM L0s L1, Exit Latency L0s <64ns, L1 <1us
-         LnkSta: Speed 32GT/s (ok), Width x16 (ok)
+            $ sudo lspci -s 02:00.0 -vvv | grep Speed
+
+            LnkCap: Port #0, Speed 32GT/s, Width x16, ASPM L0s L1, Exit Latency L0s <64ns, L1 <1us
+            LnkSta: Speed 32GT/s (ok), Width x16 (ok)      
+
+      .. tab-item:: Commands       
+                              
+         ::                                   
+                                       
+            sudo lspci -s 02:00.0 -vvv | grep Speed
 
    The maximum supported speed of the GPU is reported in ``LnkCap`` along with a width of x16. Current status is shown in ``LnkSta`` and we can see both speed and width are aligned. Your values may differ depending on your hardware.
 
@@ -66,12 +77,22 @@ Check PCIe Device Speed and Width
 
 #. Gather the PCI addresses for your NICs and validate them next. See this example from a NIC running at ``05:00.0``:
 
-   .. code-block:: shell
+   .. tab-set::
 
-         sudo lspci -s 05:00.0 -vvv | grep Speed
+      .. tab-item:: Shell Output                       
+            
+         .. code-block:: shell
+
+            $ sudo lspci -s 05:00.0 -vvv | grep Speed
             
             LnkCap: Port #0, Speed 16GT/s, Width x16, ASPM not supported
-            LnkSta: Speed 16GT/s (ok), Width x16 (ok)
+            LnkSta: Speed 16GT/s (ok), Width x16 (ok)      
+
+      .. tab-item:: Commands       
+                              
+         ::                                   
+                                       
+            sudo lspci -s 05:00.0 -vvv | grep Speed
 
    Here, the NIC is running at a speed of 16GT/s. However, since the NIC configuration only supports PCIe Gen4 speeds this is an expected value. 
    
@@ -96,33 +117,59 @@ The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size 
 
 #. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max payload size and max read request. Here is an example using the same NIC as before.
 
-   .. code-block:: shell
+   .. tab-set::
 
-      sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
+      .. tab-item:: Shell Output                       
+            
+         .. code-block:: shell
 
-         DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
-                  ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset+ SlotPowerLimit 40.000W
-         DevCtl: CorrErr+ NonFatalErr+ FatalErr+ UnsupReq-
-                  RlxdOrd+ ExtTag+ PhantFunc- AuxPwr+ NoSnoop+ FLReset-
-                  MaxPayload 512 bytes, MaxReadReq 4096 bytes
+            $ sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
+            
+            DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
+                     ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset+ SlotPowerLimit 40.000W
+            DevCtl: CorrErr+ NonFatalErr+ FatalErr+ UnsupReq-
+                     RlxdOrd+ ExtTag+ PhantFunc- AuxPwr+ NoSnoop+ FLReset-
+                     MaxPayload 512 bytes, MaxReadReq 4096 bytes     
+
+      .. tab-item:: Commands       
+                              
+         ::                                   
+                                       
+            sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
 
 #. ``MaxReadRequest`` is unique in that it can be changed during runtime with the ``setpci`` command. If your value here is lower than expected, you can correct it as follows:
 
-   .. code-block:: shell
+   .. tab-set::
 
-      sudo lspci -vvvs a1:00.0 | grep axReadReq     
-      
-         MaxPayload 512 bytes, MaxReadReq 512 bytes
-      
-      sudo setpci -s a1:00.0 68.w
-      
-         295e
-      
-      sudo setpci -s a1:00.0 68.w=595e
-      
-      sudo lspci -vvvs a1:00.0 | grep axReadReq
-      
-         MaxPayload 512 bytes, MaxReadReq 4096 bytes
+      .. tab-item:: Shell Output                       
+            
+         .. code-block:: shell
+
+            $ sudo lspci -vvvs a1:00.0 | grep axReadReq     
+            
+            MaxPayload 512 bytes, MaxReadReq 512 bytes
+            
+            $ sudo setpci -s a1:00.0 68.w
+            
+            295e
+            
+            $ sudo setpci -s a1:00.0 68.w=595e
+            
+            $ sudo lspci -vvvs a1:00.0 | grep axReadReq
+            
+            MaxPayload 512 bytes, MaxReadReq 4096 bytes
+
+      .. tab-item:: Commands
+
+         ::
+
+            sudo lspci -vvvs a1:00.0 | grep axReadReq
+
+            sudo setpci -s a1:00.0 68.w
+
+            sudo setpci -s a1:00.0 68.w=595e
+
+            sudo lspci -vvvs a1:00.0 | grep axReadReq
 
 .. note::
    Changes made with ``setpci`` are not persistent across reboots. This example uses a single NIC for simplicity, but in practice you must run the change for each NIC in the node.
@@ -139,21 +186,21 @@ Your NICs may require tuning if it has not already been done. Some steps differ 
 
 * Ensure :ref:`ACS is disabled<disable-acs-script>`.
 
-* For Mellanox NICs (HDR InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
+* For Mellanox NICs (InfiniBand or RoCE): Disable ATS, enable PCI Relaxed Ordering, increase max read requests, enable advanced PCI settings. 
 
-  .. code-block:: shell
+   .. code-block:: shell
 
-      sudo mst start
-      
-      sudo mst status
-      
-      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
-      
-      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
-      
-      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
-      
-      reboot
+         sudo mst start
+         
+         sudo mst status
+         
+         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
+         
+         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
+         
+         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
+         
+         reboot
 
 * For Broadcom NICs, ensure RoCE is enabled and consider disabling any unused ports. See the :ref:`Broadcom RoCE configuration scripts<RoCE-configuration-script-for-Broadcom-Thor-NIC>` for more details.
 
@@ -168,63 +215,52 @@ Check NIC link speed
 Verify the NICs in your servers are reporting the correct speeds. Several commands and utilities are available to measure speed based on your network type.
 
 * RoCE / Ethernet
-   - sudo ethtool <interface> | grep -i speed
-   - cat /sys/class/net/<interface>/speed
+   - ``sudo ethtool <interface> | grep -i speed``
+   - ``cat /sys/class/net/<interface>/speed``
 
 * InfiniBand
-   - ibdiagnet provides an output of the entire fabric in the default log files. You can verify link speeds here.
-   - ibstat or ibstatus tells you if the link is up and the speed at which it is running for all HCAs in the server.
+   - ``ibdiagnet`` provides an output of the entire fabric in the default log files. You can verify link speeds here.
+   - ``ibstat`` or ``ibstatus`` tells you if the link is up and the speed at which it is running for all HCAs in the server.
 
-Verify MOFED and Firmware Installation
---------------------------------------
+Verify Mellanox OFED and Firmware Installation
+----------------------------------------------
 
 .. Note::
     This step is only necessary for InfiniBand networks.
 
-Download the latest version of `Mellanox OFED (MOFED) <https://docs.nvidia.com/networking/display/mlnxofedv461000/downloading+mellanox+ofed>`_ from Nvidia. Run the installer and flint tools to verify the latest version of MOFED and firmware is on the HCAs.
-
-Single Tier Switch Configuration
---------------------------------
-
-Take these actions on each single tier (leaf/edge) switch you plan to include in network testing.
-
-1. Configure remote access to the switch management console.
-2. Verify the switch sees all hosts and ports are active.
-3. Configure openFM switch, if necessary.
-4. Configure flow control on Ethernet/RoCM as needed.
-5. Clear all port counters after the switch is ready to use.
+Download the latest version of `Mellanox OFED (MLNX_OFED) <https://docs.nvidia.com/networking/display/mlnxofedv461000/downloading+mellanox+ofed>`_ from Nvidia. Run the installer and flint tools to verify the latest version of MLNX_OFED and firmware is on the HCAs.
 
 Set up a GPU Testing Environment
 ================================
 
 Next, create a testing environment to gather performance data for your GPUs. This requires installation of ROCm Validation Suite (RVS), TransferBench, and ROCm Bandwidth Test (RBT).
 
-1. Connect to the CLI of your GPU node.
+#. Connect to the CLI of your GPU node.
 
-2. Follow directions to install RVS at `Installing ROCm Validation Suite <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/install/installation.html>`_
+#. Follow directions to install RVS at `Installing ROCm Validation Suite <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/install/installation.html>`_
 
    * Once installed, RVS is located in ``/opt/rocm/``.
 
-3. Install TransferBench from CLI.
+#. Install TransferBench from CLI.
+
+      .. code-block:: shell
+
+         $ git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git
+         
+         $ cd TransferBench
+         
+         $ sudo make
+
+         # Running make without sudo seems to cause runtime issues
+         # If this doesn't work, install math libraries manually using https://github.com/RadeonOpenCompute/ROCm/issues/1843
+
+         $ sudo apt install libstdc++-12-dev
+
+#. Install ROCm Bandwidth Test from CLI.
 
    .. code-block:: shell
-
-      git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git
       
-      cd TransferBench
-      
-      sudo make
-
-      # Running make without sudo seems to cause runtime issues
-      # If this doesn't work, install math libraries manually using https://github.com/RadeonOpenCompute/ROCm/issues/1843
-
-      sudo apt install libstdc++-12-dev
-
-4. Install ROCm Bandwidth Test from CLI.
-
-   .. code-block:: shell
-      
-      sudo apt install rocm-bandwidth-test
+      $ sudo apt install rocm-bandwidth-test
 
 Run ROCm Validation Suite (RVS)
 -------------------------------
@@ -248,60 +284,79 @@ You can run a specific RVS test by calling its configuration file with ``sudo /o
 
 **Example of GPU stress tests with the GST module**
 
-.. code-block:: shell
+.. tab-set::
 
-   sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/gst_single.conf
+   .. tab-item:: Shell Output                       
+         
+      .. code-block:: shell
 
-   [RESULT] [508635.659800] Action name :gpustress-9000-sgemm-false
-   [RESULT] [508635.660582] Module name :gst
-   [RESULT] [508642.648770] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508643.652155] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508644.657965] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508646.633979] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508647.641379] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508648.649070] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508649.657010] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508650.665296] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
-   [RESULT] [508655.632843] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output> Target stress : <stress value> met :TRUE
+         $ sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/gst_single.conf
+
+         [RESULT] [508635.659800] Action name :gpustress-9000-sgemm-false
+         [RESULT] [508635.660582] Module name :gst
+         [RESULT] [508642.648770] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508643.652155] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508644.657965] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508646.633979] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508647.641379] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508648.649070] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508649.657010] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508650.665296] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output>
+         [RESULT] [508655.632843] [gpustress-9000-sgemm-false] gst <GPU ID> GFLOPS <performance output> Target stress : <stress value> met :TRUE
+
+   .. tab-item:: Commands
+
+      ::
+
+         sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/gst_single.conf                
 
 **Example of PCIe bandwidth benchmarks with the PBQT module**
 
-.. code-block:: shell
+.. tab-set::
 
-   sudo /opt/rocm/rvs/rvs -c /opt/rocm/share/rocm-validation-suite/conf/pbqt_single.conf -d 3
+   .. tab-item:: Shell Output                       
+         
+      .. code-block:: shell
 
-   [RESULT] [1148200.536604] Action name :action_1
+         $ sudo /opt/rocm/rvs/rvs -c /opt/rocm/share/rocm-validation-suite/conf/pbqt_single.conf -d 3
 
-               Discovered Nodes
-   ==============================================
+         [RESULT] [1148200.536604] Action name :action_1
 
-   Node Name                                                              Node Type               Index      GPU ID
-   =============================================================================================================================
-   <CPU1>                                                                    CPU                   0         N/A
+                     Discovered Nodes
+         ==============================================
 
-   <CPU2>                                                                    CPU                   1         N/A
+         Node Name                                                              Node Type               Index      GPU ID
+         =============================================================================================================================
+         <CPU1>                                                                    CPU                   0         N/A
 
-   <CPU3>                                                                    CPU                   2         N/A
+         <CPU2>                                                                    CPU                   1         N/A
 
-   <CPU4>                                                                    CPU                   3         N/A
+         <CPU3>                                                                    CPU                   2         N/A
 
-   <GPU1>                                                                    GPU                   4         <GPU1-ID>
+         <CPU4>                                                                    CPU                   3         N/A
 
-   <GPU2>                                                                    GPU                   5         <GPU2-ID>
-   =============================================================================================================================
-   [RESULT] [1148200.576371] Module name :pbqt
-   [INFO  ] [1148200.576394] Missing 'device_index' key.
-   [RESULT] [1148200.576498] [action_1] p2p <GPU1> <GPU2> peers:true distance:72 PCIe:72
-   [RESULT] [1148205.576740] [action_1] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps  duration: <result> sec
-   [RESULT] [1148205.577850] Action name :action_2
-   [RESULT] [1148205.577862] Module name :pbqt
-   [INFO  ] [1148205.577883] Missing 'device_index' key.
-   [RESULT] [1148205.578085] [action_2] p2p <GPU1> <GPU2> peers:true distance:72 PCIe:72
-   [INFO  ] [1148216.581794] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
-   [INFO  ] [1148217.581371] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
-   [INFO  ] [1148218.580844] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
-   [INFO  ] [1148219.580909] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
+         <GPU1>                                                                    GPU                   4         <GPU1-ID>
 
+         <GPU2>                                                                    GPU                   5         <GPU2-ID>
+         =============================================================================================================================
+         [RESULT] [1148200.576371] Module name :pbqt
+         [INFO  ] [1148200.576394] Missing 'device_index' key.
+         [RESULT] [1148200.576498] [action_1] p2p <GPU1> <GPU2> peers:true distance:72 PCIe:72
+         [RESULT] [1148205.576740] [action_1] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps  duration: <result> sec
+         [RESULT] [1148205.577850] Action name :action_2
+         [RESULT] [1148205.577862] Module name :pbqt
+         [INFO  ] [1148205.577883] Missing 'device_index' key.
+         [RESULT] [1148205.578085] [action_2] p2p <GPU1> <GPU2> peers:true distance:72 PCIe:72
+         [INFO  ] [1148216.581794] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
+         [INFO  ] [1148217.581371] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
+         [INFO  ] [1148218.580844] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
+         [INFO  ] [1148219.580909] [action_2] p2p-bandwidth  [1/1] <GPU1> <GPU2>  bidirectional: true  <result> GBps
+
+   .. tab-item:: Commands
+
+      ::
+
+         sudo /opt/rocm/rvs/rvs -c /opt/rocm/share/rocm-validation-suite/conf/pbqt_single.conf -d 3
 
 Run TransferBench
 -----------------
@@ -310,76 +365,86 @@ TransferBench is a tool you can use to benchmark simultaneous transfers between 
 
 Like RVS, TransferBench runs tests from configuration files. You can either run one of several preset configuration files or define your own. A useful all-around test to run is ``p2p``, which tests the unidirectional and bidirectional transfer rates on all CPUs and GPUs detected by TransferBench. See the example below for the output of this test on a 2-CPU, 8-GPU node with 4 MB transfer packets.
 
-.. code-block:: shell
+.. tab-set::
 
-   ./TransferBench p2p 4M
+   .. tab-item:: Shell Output                       
+         
+      .. code-block:: shell
 
-   TransferBench v1.50
-   ===============================================================
-   [Common]                              
-   ALWAYS_VALIDATE      =            0 : Validating after all iterations
-   <SNIP>……
-   Bytes Per Direction 4194304
-   Unidirectional copy peak bandwidth GB/s [Local read / Remote write] (GPU-Executor: GFX)
-      SRC+EXE\DST    CPU 00    CPU 01       GPU 00    GPU 01    GPU 02    GPU 03    GPU 04    GPU 05    GPU 06    GPU 07
-      CPU 00  ->     24.37     25.62        17.32     16.97     17.33     17.47     16.77     17.12     16.91     16.96
-      CPU 01  ->     18.83     19.62        14.84     15.47     15.16     15.13     16.11     16.13     16.01     15.91
+         $ ./TransferBench p2p 4M
 
-      GPU 00  ->     23.83     23.40       108.95     64.58     31.56     28.39     28.44     26.99     47.46     39.97
-      GPU 01  ->     24.05     23.93        66.52    109.18     29.07     32.53     27.80     31.73     40.79     36.42
-      GPU 02  ->     23.83     23.47        31.48     28.58    109.45     65.11     47.40     40.11     28.45     27.46
-      GPU 03  ->     24.35     23.93        28.65     32.00     65.68    108.68     39.85     36.08     27.08     31.49
-      GPU 04  ->     23.30     23.84        28.57     26.93     47.36     39.77    110.94     64.66     31.14     28.15
-      GPU 05  ->     23.39     24.08        27.19     31.26     39.85     35.49     64.98    110.10     28.57     31.43
-      GPU 06  ->     23.43     24.03        47.58     39.22     28.97     26.93     31.48     28.41    109.78     64.98
-      GPU 07  ->     23.45     23.94        39.70     35.50     27.08     31.25     28.14     32.19     65.00    110.47
-                                 CPU->CPU  CPU->GPU  GPU->CPU  GPU->GPU
-      Averages (During UniDir):     22.23     16.35     23.77     37.74
+         TransferBench v1.50
+         ===============================================================
+         [Common]                              
+         ALWAYS_VALIDATE      =            0 : Validating after all iterations
+         <SNIP>……
+         Bytes Per Direction 4194304
+         Unidirectional copy peak bandwidth GB/s [Local read / Remote write] (GPU-Executor: GFX)
+            SRC+EXE\DST    CPU 00    CPU 01       GPU 00    GPU 01    GPU 02    GPU 03    GPU 04    GPU 05    GPU 06    GPU 07
+            CPU 00  ->     24.37     25.62        17.32     16.97     17.33     17.47     16.77     17.12     16.91     16.96
+            CPU 01  ->     18.83     19.62        14.84     15.47     15.16     15.13     16.11     16.13     16.01     15.91
 
-      Bidirectional copy peak bandwidth GB/s [Local read / Remote write] (GPU-Executor: GFX)
-         SRC\DST    CPU 00    CPU 01       GPU 00    GPU 01    GPU 02    GPU 03    GPU 04    GPU 05    GPU 06    GPU 07
-      CPU 00  ->       N/A     17.07        16.90     17.09     15.39     17.07     16.62     16.65     16.40     16.32
-      CPU 00 <-        N/A     13.90        24.06     24.03     24.00     24.21     23.09     23.14     22.11     22.15
-      CPU 00 <->       N/A     30.97        40.96     41.12     39.39     41.28     39.71     39.80     38.51     38.47
+            GPU 00  ->     23.83     23.40       108.95     64.58     31.56     28.39     28.44     26.99     47.46     39.97
+            GPU 01  ->     24.05     23.93        66.52    109.18     29.07     32.53     27.80     31.73     40.79     36.42
+            GPU 02  ->     23.83     23.47        31.48     28.58    109.45     65.11     47.40     40.11     28.45     27.46
+            GPU 03  ->     24.35     23.93        28.65     32.00     65.68    108.68     39.85     36.08     27.08     31.49
+            GPU 04  ->     23.30     23.84        28.57     26.93     47.36     39.77    110.94     64.66     31.14     28.15
+            GPU 05  ->     23.39     24.08        27.19     31.26     39.85     35.49     64.98    110.10     28.57     31.43
+            GPU 06  ->     23.43     24.03        47.58     39.22     28.97     26.93     31.48     28.41    109.78     64.98
+            GPU 07  ->     23.45     23.94        39.70     35.50     27.08     31.25     28.14     32.19     65.00    110.47
+                                       CPU->CPU  CPU->GPU  GPU->CPU  GPU->GPU
+            Averages (During UniDir):     22.23     16.35     23.77     37.74
 
-      CPU 01  ->     12.85       N/A        15.29     15.14     15.03     15.16     15.95     15.62     16.06     15.85
-      CPU 01 <-      17.34       N/A        22.95     23.18     22.98     22.92     23.86     24.05     23.94     23.94
-      CPU 01 <->     30.19       N/A        38.24     38.32     38.01     38.08     39.80     39.67     40.00     39.79
+         Bidirectional copy peak bandwidth GB/s [Local read / Remote write] (GPU-Executor: GFX)
+            SRC\DST    CPU 00    CPU 01       GPU 00    GPU 01    GPU 02    GPU 03    GPU 04    GPU 05    GPU 06    GPU 07
+            CPU 00  ->       N/A     17.07        16.90     17.09     15.39     17.07     16.62     16.65     16.40     16.32
+            CPU 00 <-        N/A     13.90        24.06     24.03     24.00     24.21     23.09     23.14     22.11     22.15
+            CPU 00 <->       N/A     30.97        40.96     41.12     39.39     41.28     39.71     39.80     38.51     38.47
+
+            CPU 01  ->     12.85       N/A        15.29     15.14     15.03     15.16     15.95     15.62     16.06     15.85
+            CPU 01 <-      17.34       N/A        22.95     23.18     22.98     22.92     23.86     24.05     23.94     23.94
+            CPU 01 <->     30.19       N/A        38.24     38.32     38.01     38.08     39.80     39.67     40.00     39.79
 
 
-      GPU 00  ->     23.99     22.94          N/A     62.40     30.30     25.15     25.00     25.20     46.58     37.99
-      GPU 00 <-      16.87     14.75          N/A     65.21     31.10     25.91     25.53     25.48     47.34     38.17
-      GPU 00 <->     40.85     37.69          N/A    127.61     61.40     51.06     50.53     50.68     93.91     76.16
+            GPU 00  ->     23.99     22.94          N/A     62.40     30.30     25.15     25.00     25.20     46.58     37.99
+            GPU 00 <-      16.87     14.75          N/A     65.21     31.10     25.91     25.53     25.48     47.34     38.17
+            GPU 00 <->     40.85     37.69          N/A    127.61     61.40     51.06     50.53     50.68     93.91     76.16
 
-      GPU 01  ->     24.11     23.20        65.10       N/A     25.88     31.74     25.66     31.01     39.37     34.75
-      GPU 01 <-      17.00     14.08        61.91       N/A     26.09     31.90     25.73     31.34     38.97     34.76
-      GPU 01 <->     41.11     37.29       127.01       N/A     51.97     63.64     51.39     62.35     78.35     69.51
+            GPU 01  ->     24.11     23.20        65.10       N/A     25.88     31.74     25.66     31.01     39.37     34.75
+            GPU 01 <-      17.00     14.08        61.91       N/A     26.09     31.90     25.73     31.34     38.97     34.76
+            GPU 01 <->     41.11     37.29       127.01       N/A     51.97     63.64     51.39     62.35     78.35     69.51
 
-      GPU 02  ->     23.89     22.78        30.94     26.39       N/A     62.22     45.73     38.40     25.95     25.26
-      GPU 02 <-      16.59     13.91        30.47     26.54       N/A     63.63     47.42     38.68     26.29     25.64
-      GPU 02 <->     40.48     36.69        61.42     52.93       N/A    125.85     93.15     77.08     52.24     50.90
+            GPU 02  ->     23.89     22.78        30.94     26.39       N/A     62.22     45.73     38.40     25.95     25.26
+            GPU 02 <-      16.59     13.91        30.47     26.54       N/A     63.63     47.42     38.68     26.29     25.64
+            GPU 02 <->     40.48     36.69        61.42     52.93       N/A    125.85     93.15     77.08     52.24     50.90
 
-      GPU 03  ->     24.15     22.98        25.84     31.69     64.03       N/A     38.82     35.12     25.46     30.82
-      GPU 03 <-      17.22     14.19        25.28     31.16     61.90       N/A     38.16     34.85     25.81     30.97
-      GPU 03 <->     41.37     37.16        51.12     62.84    125.93       N/A     76.99     69.97     51.27     61.79
+            GPU 03  ->     24.15     22.98        25.84     31.69     64.03       N/A     38.82     35.12     25.46     30.82
+            GPU 03 <-      17.22     14.19        25.28     31.16     61.90       N/A     38.16     34.85     25.81     30.97
+            GPU 03 <->     41.37     37.16        51.12     62.84    125.93       N/A     76.99     69.97     51.27     61.79
 
-      GPU 04  ->     23.12     23.73        25.50     25.40     47.04     38.29       N/A     62.44     30.56     25.15
-      GPU 04 <-      16.15     12.86        25.13     25.63     46.38     38.65       N/A     63.89     30.88     25.74
-      GPU 04 <->     39.27     36.58        50.63     51.03     93.42     76.94       N/A    126.34     61.43     50.89
+            GPU 04  ->     23.12     23.73        25.50     25.40     47.04     38.29       N/A     62.44     30.56     25.15
+            GPU 04 <-      16.15     12.86        25.13     25.63     46.38     38.65       N/A     63.89     30.88     25.74
+            GPU 04 <->     39.27     36.58        50.63     51.03     93.42     76.94       N/A    126.34     61.43     50.89
 
-      GPU 05  ->     23.09     24.04        25.61     31.29     38.82     34.96     63.55       N/A     25.87     30.35
-      GPU 05 <-      13.65     15.46        25.26     30.87     38.51     34.70     61.57       N/A     26.34     31.47
-      GPU 05 <->     36.75     39.50        50.87     62.16     77.32     69.66    125.12       N/A     52.21     61.82
+            GPU 05  ->     23.09     24.04        25.61     31.29     38.82     34.96     63.55       N/A     25.87     30.35
+            GPU 05 <-      13.65     15.46        25.26     30.87     38.51     34.70     61.57       N/A     26.34     31.47
+            GPU 05 <->     36.75     39.50        50.87     62.16     77.32     69.66    125.12       N/A     52.21     61.82
 
-      GPU 06  ->     22.09     23.73        47.51     38.56     26.15     25.59     31.32     25.98       N/A     62.34
-      GPU 06 <-      16.31     15.40        46.22     39.16     25.63     25.17     30.44     25.58       N/A     63.88
-      GPU 06 <->     38.39     39.13        93.72     77.72     51.78     50.76     61.76     51.56       N/A    126.22
+            GPU 06  ->     22.09     23.73        47.51     38.56     26.15     25.59     31.32     25.98       N/A     62.34
+            GPU 06 <-      16.31     15.40        46.22     39.16     25.63     25.17     30.44     25.58       N/A     63.88
+            GPU 06 <->     38.39     39.13        93.72     77.72     51.78     50.76     61.76     51.56       N/A    126.22
 
-      GPU 07  ->     22.31     23.88        38.68     34.96     25.54     30.96     25.79     31.28     63.69       N/A
-      GPU 07 <-      16.27     15.89        38.39     35.06     25.27     30.62     25.25     30.91     62.36       N/A
-      GPU 07 <->     38.58     39.77        77.07     70.02     50.81     61.58     51.05     62.20    126.04       N/A
-                                 CPU->CPU  CPU->GPU  GPU->CPU  GPU->GPU
-   Averages (During  BiDir):     15.29     19.72     19.39     36.17
+            GPU 07  ->     22.31     23.88        38.68     34.96     25.54     30.96     25.79     31.28     63.69       N/A
+            GPU 07 <-      16.27     15.89        38.39     35.06     25.27     30.62     25.25     30.91     62.36       N/A
+            GPU 07 <->     38.58     39.77        77.07     70.02     50.81     61.58     51.05     62.20    126.04       N/A
+                                       CPU->CPU  CPU->GPU  GPU->CPU  GPU->GPU
+         Averages (During  BiDir):     15.29     19.72     19.39     36.17
+
+   .. tab-item:: Commands
+
+      ::
+
+         ./TransferBench p2p 4M
 
 If you want to define your own configuration file, run ``cat ~/TransferBench/examples/example.cfg`` to view an example configuration file with information on commands and arguments to run more granular testing. Running DMA tests between single pairs of devices is one helpful and common use-case for custom configuration files. See the `TransferBench documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_ for more information.
 
@@ -392,7 +457,7 @@ Run ``/opt/rocm/bin/rocm-bandwidth-test -h`` to get a help screen with available
 
 .. code-block:: shell
 
-   /opt/rocm/bin/rocm-bandwidth-test -h
+   $ /opt/rocm/bin/rocm-bandwidth-test -h
       
    Supported arguments:
 
@@ -422,157 +487,186 @@ The default behavior of ``/opt/rocm/bin/rocm-bandwidth-test`` without any flags 
 
 Getting a list of all ROCm-detected devices:
 
-.. code-block:: shell
+.. tab-set::
 
-   /opt/rocm/bin/rocm-bandwidth-test -e
+   .. tab-item:: Shell Output
 
-      RocmBandwidthTest Version: 2.6.0
+      .. code-block:: shell
 
-         Launch Command is: /opt/rocm/bin/rocm-bandwidth-test -e
+         $ /opt/rocm/bin/rocm-bandwidth-test -e
+
+         RocmBandwidthTest Version: 2.6.0
+
+            Launch Command is: /opt/rocm/bin/rocm-bandwidth-test -e
 
 
-         Device Index:                             0
-         Device Type:                            CPU
-         Device Name:                            <CPU Name>
-            Allocatable Memory Size (KB):         1044325060
+            Device Index:                             0
+            Device Type:                            CPU
+            Device Name:                            <CPU Name>
+               Allocatable Memory Size (KB):         1044325060
 
-         Device Index:                             1
-         Device Type:                            CPU
-         Device Name:                            <CPU Name>
-            Allocatable Memory Size (KB):         1056868156
+            Device Index:                             1
+            Device Type:                            CPU
+            Device Name:                            <CPU Name>
+               Allocatable Memory Size (KB):         1056868156
 
-         Device Index:                             2
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             2
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             3
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             3
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             4
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             4
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             5
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             5
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             6
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             6
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             7
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             7
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             8
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             8
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
 
-         Device Index:                             9
-         Device Type:                            GPU
-         Device Name:                            <GPU Name>
-         Device  BDF:                            XX:0.0
-         Device UUID:                            GPU-0000
-            Allocatable Memory Size (KB):         67092480
-            Allocatable Memory Size (KB):         67092480
+            Device Index:                             9
+            Device Type:                            GPU
+            Device Name:                            <GPU Name>
+            Device  BDF:                            XX:0.0
+            Device UUID:                            GPU-0000
+               Allocatable Memory Size (KB):         67092480
+               Allocatable Memory Size (KB):         67092480
+
+   .. tab-item:: Commands
+
+      ::
+
+         /opt/rocm/bin/rocm-bandwidth-test -e
 
 Running a unidirectional benchmark between devices 0 (CPU) and 4 (GPU):
 
-.. code-block:: shell
+.. tab-set::
 
-   /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
-   ........................................
-            RocmBandwidthTest Version: 2.6.0
+   .. tab-item:: Shell Output
 
-            Launch Command is: /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
+      .. code-block:: shell
+
+         $ /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
+         ........................................
+                  RocmBandwidthTest Version: 2.6.0
+
+                  Launch Command is: /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
 
 
-   ================    Unidirectional Benchmark Result    ================
-   ================ Src Device Id: 0 Src Device Type: Cpu ================
-   ================ Dst Device Id: 4 Dst Device Type: Gpu ================
+         ================    Unidirectional Benchmark Result    ================
+         ================ Src Device Id: 0 Src Device Type: Cpu ================
+         ================ Dst Device Id: 4 Dst Device Type: Gpu ================
 
-   Data Size      Avg Time(us)   Avg BW(GB/s)   Min Time(us)   Peak BW(GB/s)
-   1 KB           5.400          0.190          5.280          0.194
-   2 KB           5.360          0.382          5.280          0.388
-   4 KB           5.440          0.753          5.440          0.753
-   8 KB           5.440          1.506          5.440          1.506
-   16 KB          5.880          2.786          5.760          2.844
-   32 KB          6.400          5.120          6.400          5.120
-   64 KB          7.520          8.715          7.520          8.715
-   128 KB         9.920          13.213         9.920          13.213
-   256 KB         14.520         18.054         14.400         18.204
-   512 KB         23.560         22.253         23.520         22.291
-   1 MB           41.880         25.038         41.760         25.110
-   2 MB           78.400         26.749         78.400         26.749
-   4 MB           153.201        27.378         152.641        27.478
-   8 MB           299.641        27.996         299.521        28.007
-   16 MB          592.002        28.340         592.002        28.340
-   32 MB          1176.925       28.510         1176.805       28.513
-   64 MB          2346.730       28.597         2346.730       28.597
-   128 MB         4686.180       28.641         4686.100       28.642
-   256 MB         9365.280       28.663         9365.160       28.663
-   512 MB         18722.762      28.675         18722.482      28.675
+         Data Size      Avg Time(us)   Avg BW(GB/s)   Min Time(us)   Peak BW(GB/s)
+         1 KB           5.400          0.190          5.280          0.194
+         2 KB           5.360          0.382          5.280          0.388
+         4 KB           5.440          0.753          5.440          0.753
+         8 KB           5.440          1.506          5.440          1.506
+         16 KB          5.880          2.786          5.760          2.844
+         32 KB          6.400          5.120          6.400          5.120
+         64 KB          7.520          8.715          7.520          8.715
+         128 KB         9.920          13.213         9.920          13.213
+         256 KB         14.520         18.054         14.400         18.204
+         512 KB         23.560         22.253         23.520         22.291
+         1 MB           41.880         25.038         41.760         25.110
+         2 MB           78.400         26.749         78.400         26.749
+         4 MB           153.201        27.378         152.641        27.478
+         8 MB           299.641        27.996         299.521        28.007
+         16 MB          592.002        28.340         592.002        28.340
+         32 MB          1176.925       28.510         1176.805       28.513
+         64 MB          2346.730       28.597         2346.730       28.597
+         128 MB         4686.180       28.641         4686.100       28.642
+         256 MB         9365.280       28.663         9365.160       28.663
+         512 MB         18722.762      28.675         18722.482      28.675
 
+   .. tab-item:: Commands
+
+      ::
+
+         /opt/rocm/bin/rocm-bandwidth-test -s 0 -d 4
 
 Running a bidirectional benchmark on all available device combinations:
 
-.. code-block:: shell
+.. tab-set::
 
-   /opt/rocm/bin/rocm-bandwidth-test -A
+   .. tab-item:: Shell Output
 
-   <SNIP>……   
-   Bidirectional copy peak bandwidth GB/s
+      .. code-block:: shell
 
-         D/D       0           1           2           3           4           5           6           7           8           9
+         $ /opt/rocm/bin/rocm-bandwidth-test -A
 
-         0         N/A         N/A         47.703      47.679      47.619      47.586      38.106      38.160      36.771      36.773
+         <SNIP>……   
+         Bidirectional copy peak bandwidth GB/s
 
-         1         N/A         N/A         38.351      38.395      36.488      36.454      47.495      47.512      47.525      47.471
+               D/D       0           1           2           3           4           5           6           7           8           9
 
-         2         47.703      38.351      N/A         101.458     80.902      81.300      81.387      79.279      101.526     101.106
+               0         N/A         N/A         47.703      47.679      47.619      47.586      38.106      38.160      36.771      36.773
 
-         3         47.679      38.395      101.458     N/A         81.278      80.488      79.535      79.907      101.615     101.618
+               1         N/A         N/A         38.351      38.395      36.488      36.454      47.495      47.512      47.525      47.471
 
-         4         47.619      36.488      80.902      81.278      N/A         101.643     101.089     101.693     81.336      79.232
+               2         47.703      38.351      N/A         101.458     80.902      81.300      81.387      79.279      101.526     101.106
 
-         5         47.586      36.454      81.300      80.488      101.643     N/A         101.217     101.478     79.460      79.922
+               3         47.679      38.395      101.458     N/A         81.278      80.488      79.535      79.907      101.615     101.618
 
-         6         38.106      47.495      81.387      79.535      101.089     101.217     N/A         101.506     80.497      81.302
+               4         47.619      36.488      80.902      81.278      N/A         101.643     101.089     101.693     81.336      79.232
 
-         7         38.160      47.512      79.279      79.907      101.693     101.478     101.506     N/A         81.301      80.501
+               5         47.586      36.454      81.300      80.488      101.643     N/A         101.217     101.478     79.460      79.922
 
-         8         36.771      47.525      101.526     101.615     81.336      79.460      80.497      81.301      N/A         100.908
+               6         38.106      47.495      81.387      79.535      101.089     101.217     N/A         101.506     80.497      81.302
 
-         9         36.773      47.471      101.106     101.618     79.232      79.922      81.302      80.501      100.908     N/A
+               7         38.160      47.512      79.279      79.907      101.693     101.478     101.506     N/A         81.301      80.501
+
+               8         36.771      47.525      101.526     101.615     81.336      79.460      80.497      81.301      N/A         100.908
+
+               9         36.773      47.471      101.106     101.618     79.232      79.922      81.302      80.501      100.908     N/A
+
+   .. tab-item:: Commands
+
+      ::
+
+         /opt/rocm/bin/rocm-bandwidth-test -A
 
 For a more detailed explanation of different ways to run RBT, see the `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_.
 
@@ -632,9 +726,6 @@ Run these scripts where indicated to aid in the configuration and setup of your 
 
 .. dropdown:: RoCE configuration script for Broadcom Thor NIC
 
-   .. note::
-      This page uses ``bnxtnvm``. Thor2 and later versions of Broadcom NICs use ``niccli``, but most commands are similar.
-
    .. code-block:: shell
 
       # Increase Max Read request Size to 4k 
@@ -642,23 +733,23 @@ Run these scripts where indicated to aid in the configuration and setup of your 
 
       # Check if Relaxed Ordering is enabled
 
-      for i in $(sudo bnxtnvm listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo bnxtnvm -dev=$i getoption=pcie_relaxed_ordering); done
+      for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i getoption -name pcie_relaxed_ordering); done
 
       # Set Relaxed Ordering if not enabled 
       
-      for i in $(sudo bnxtnvm listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo bnxtnvm -dev=$i setoption=pcie_relaxed_ordering:"#1"); done
+      for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i setoption -name pcie_relaxed_ordering -value 1); done
 
       # Check if RDMA support is enabled
       
-      for i in $(sudo bnxtnvm listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo bnxtnvm -dev=$i getoption=support_rdma:0) - $(sudo bnxtnvm -dev=$i \ getoption=support_rdma:1); done
+      for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i getoption -name support_rdma -scope 0) - $(sudo niccli -dev=$i \ getoption=support_rdma:1); done
 
       # Set RMDA support if not enabled 
       
-      for i in $(sudo bnxtnvm listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ bnxtnvm -dev=$i setoption=support_rdma:0"#1") - $(sudo bnxtnvm -dev=$i \ setoption=support_rdma:1"#1"); done
+      for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name support_rdma -scope 0 -value 1) - $(sudo niccli -dev=$i \ setoption -name support_rdma -scope 1 -value 1); done
 
       # Set Speed Mask
 
-      bnxtnvm -dev=<interface name> setoption=autodetect_speed_exclude_mask:0#01C0
+      niccli -dev=<interface name> setoption=autodetect_speed_exclude_mask:0#01C0
 
       # Set 200Gbps
       
@@ -666,7 +757,27 @@ Run these scripts where indicated to aid in the configuration and setup of your 
 
       # Set performance profile to RoCE ==REQUIRES REBOOT IF OLDER FIRMWARE LOADED==
 
-      for i in $(sudo ./bnxtnvm listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ ./bnxtnvm -dev=$i setoption=performance_profile#1); done
+      for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name performance_profile -value 1); done
 
+Reference Documentation
+=======================
 
+* `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
 
+* `ROCm installation for Linux <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/index.html>`_
+
+* `Nvidia MLNX_OFED Documentation <https://docs.nvidia.com/networking/display/mlnxofedv461000>`_
+
+* `ROCm Validation Suite Documentation <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/index.html>`_
+
+* `TransferBench Documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_
+
+* `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_
+
+* `Broadcom Ethernet Network Adapter User Guide <https://techdocs.broadcom.com/us/en/storage-and-ethernet-connectivity/ethernet-nic-controllers/bcm957xxx/adapters.html>`_
+
+Resources and Helpful Links
+===========================
+
+* `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
+* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>_`
