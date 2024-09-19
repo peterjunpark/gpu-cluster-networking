@@ -780,4 +780,4 @@ Resources and Helpful Links
 ===========================
 
 * `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
-* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>_`
+* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>`_
