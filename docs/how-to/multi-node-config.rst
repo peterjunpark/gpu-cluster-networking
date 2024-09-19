@@ -535,8 +535,8 @@ Collective OSU Benchmarks
       * - osu_allgather 2N 16Proc
         - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
-RCCL Collective Benchmark
--------------------------
+Run RCCL Collective Benchmark
+=============================
 
 RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD Instinct GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or Open MPI as well. 
 
@@ -562,4 +562,4 @@ Resources and Helpful Links
 ===========================
 
 * `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
-* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>_`
+* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>`_
