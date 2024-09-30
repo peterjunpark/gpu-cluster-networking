@@ -155,82 +155,75 @@ installed the OFED perftests on.
 Consult this table for an explanation of flags used in the ``numactl`` examples
 and other optional flags that may be useful for you.
 
-.. raw:: html
+-d <IB/RoCE interface>
+  Specifies a NIC to use. Ensure you use a NIC that is both adjacent to a GPU and not crossing NUMA domains or otherwise needing pass traffic between CPUs before egressing from the host. Tools like ``rocm-smi --showtopo`` and ``lstopo`` can help define which NICs are adjacent to which GPUs.
 
-   <style>
-     #perftest-commands-table tr td:last-child {
-       font-size: 0.9rem;
-     }
-   </style>
+-p <port #>
+  Assign a port number to the server/client, when running simultaneously you must use different ports.
 
-.. container::
-   :name: perftest-commands-table
+--report_gbits
+  Reports in Gb/s instead of Mb/s.
 
-   .. list-table::
-      :header-rows: 1
-      :stub-columns: 1
-      :widths: 2 5
+-m <mtu>
+  Set MTU size.
 
-      * - Flag
-        - Description
+-b
+  Bidirectional runs.
 
-      * - -d <IB/RoCE interface>
-        - Specifies a NIC to use. Ensure you use a NIC that is both adjacent to a GPU and not crossing NUMA domains or otherwise needing pass traffic between CPUs before egressing from the host. Tools like ``rocm-smi --showtopo`` and ``lstopo`` can help define which NICs are adjacent to which GPUs.
+-a 
+  Runs messages in all sizes.
 
-      * - -p <port #>
-        -  Assign a port number to the server/client, when running simultaneously you must use different ports.
+-n <number> 
+  Provides the number of iterations.
 
-      * - --report_gbits
-        - Reports in Gb/s instead of Mb/s.
+-F
+  Do not show warning if cpufreq_ondemand is loaded.
 
-      * - -m <mtu>
-        - Set MTU size.
-    
-      * - -b
-        - Bidirectional runs.
+--use_rocm=<rocm_device_number>
+  This is for device testing, allows you to specify which GPU to use. Zero-based numbering. 
 
-      * - -a 
-        - Runs messages in all sizes.
+--perform_warm_up 
+  Runs several iterations before benchmarking to warm up memory cache.
 
-      * - -n <number> 
-        - Provides the number of iterations.
-
-      * - -F
-        - Do not show warning if cpufreq_ondemand is loaded.
-
-      * - --use_rocm=<rocm_device_number>
-        - This is for device testing, allows you to specify which GPU to use. Zero-based numbering. 
-     
-      * - --perform_warm_up 
-        - Runs several iterations before benchmarking to warm up memory cache.
-
-As servers typically have one NIC per GPU, you must change the device location frequently as you iterate through tests. 
+As servers typically have one NIC per GPU, you must change the device location
+frequently as you iterate through tests. 
 
 Run multithreaded H2H RDMA benchmark
 -------------------------------------
 
-You can multithread an OFED perftest by running it simultaneously on each NIC in the server. Use ``taskset`` to select a CPU core on the same NUMA domain as the NICs. Although testing the XGMI/Infinity Fabric link between CPUs is not a goal at this point, it's an option if preferred.
+You can multithread an OFED perftest by running it simultaneously on each NIC in
+the server. Use ``taskset`` to select a CPU core on the same NUMA domain as the
+NICs. Although testing the XGMI/Infinity Fabric link between CPUs is not a goal
+at this point, it's an option if preferred.
 
 Run extended multithreaded H2H RDMA benchmark
 ---------------------------------------------
 
-Run the previous test, but this time loop it and run it for a minimum of 8 hours. The goal is to stress the IO network on the fabric over a long period of time.
+Run the previous test, but this time loop it and run it for a minimum of 8
+hours. The goal is to stress the IO network on the fabric over a long period of
+time.
 
 Run device-based (GPU) OFED performance tests
 =============================================
 
-Once H2H performance is verified, you can run the Device to Device (D2D) OFED perftests that include GPU traffic.
+Once H2H performance is verified, you can run the Device to Device (D2D) OFED
+perftests that include GPU traffic.
 
 Run D2D RDMA benchmark
 -----------------------
 
-Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1, GPU2 to GPU3, and so on). 
+Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1,
+GPU2 to GPU3, and so on). 
 
 .. note::
 
-   If you have Mellanox or NVIDIA NICs, be aware that the default OFED perftest installation doesn't include ROCm support. Follow the :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>` if you haven't done so already.
+   If you have Mellanox or NVIDIA NICs, be aware that the default OFED perftest
+   installation doesn't include ROCm support. Follow the
+   :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>`
+   if you haven't done so already.
 
-In this example, localhost is used by the client to call the server. You may use a specific IP address to ensure the network is tested.
+In this example, ``localhost`` is used by the client to call the server. You may
+use a specific IP address to ensure the network is tested.
 
 .. code-block:: shell
 
@@ -283,7 +276,11 @@ In this example, localhost is used by the client to call the server. You may use
    ---------------------------------------------------------------------------------------
 
 .. note::
-   If you run the test with different values for ``--use_rocm=#`` on the server and the client, the output will show results from whichever GPU is local to the node you're looking at. The tool is unable to show server and client simultaneously.
+
+   If you run the test with different values for ``--use_rocm=#`` on the server
+   and the client, the output will show results from whichever GPU is local to
+   the node you're looking at. The tool is unable to show server and client
+   simultaneously.
 
 Run H2D/D2H RDMA Benchmark
 ---------------------------
@@ -338,47 +335,69 @@ For a 2-CPU/8-GPU node you would have have 32 test scenarios per pairs of server
      -
      -
 
-To run this test, use a command similar to the example in the D2D benchmark, but only add the ``--use_rocm`` flag on either the server or client side so that one node communicates with the GPUs while the other does so with CPUs. Then run the test a second time with the ``use_rocm`` flag on the other side. Continue to use the most adjacent NIC to the GPU or CPU being tested so that communication doesn't run between between intranode CPUs (testing the internal CPU-CPU fabric isn't a goal at this time). 
+To run this test, use a command similar to the example in the D2D benchmark, but
+only add the ``--use_rocm`` flag on either the server or client side so that one
+node communicates with the GPUs while the other does so with CPUs. Then run the
+test a second time with the ``use_rocm`` flag on the other side. Continue to use
+the most adjacent NIC to the GPU or CPU being tested so that communication
+doesn't run between between intranode CPUs (testing the internal CPU-CPU fabric
+isn't a goal at this time). 
 
-D2D RDMA Multithread Benchmark
+D2D RDMA multithread benchmark
 ------------------------------
 
-For this test you must run the previous D2D benchmark simultaneously on all GPUs. Scripting is required to accomplish this, but the command input should resemble something like the following image with regard to your RDMA device naming scheme.
+For this test you must run the previous D2D benchmark simultaneously on all
+GPUs. Scripting is required to accomplish this, but the command input should
+resemble something like the following image with regard to your RDMA device
+naming scheme.
 
 .. image:: ../data/D2D-perftest-multithread.png
    :alt: multithread perftest input
 
 Important OFED perftest flags for this effort include:
 
-* ``-p <port#>`` - Lets you assign specific ports for server/client combinations. Each pair needs an independent port number so you don't inadvertently use the wrong server. 
+-p <port#>
+  Lets you assign specific ports for server/client combinations. Each pair needs an independent port number so you don't inadvertently use the wrong server. 
 
-* ``-n <# of iterations>`` - Default is 1000, you can increase this to have the test run longer. 
+-n <# of iterations>
+  Default is 1000, you can increase this to have the test run longer. 
 
-* For bandwidth tests only:
-  
-  * ``-D <seconds>`` - Defines how long the test runs for. 
-  
-  * ``--run_infinitely`` - Requires user to break the runtime, otherwise runs indefinitely. 
+For bandwidth tests only:
+
+-D <seconds>
+  Defines how long the test runs for. 
+
+--run_infinitely
+  Requires user to break the runtime, otherwise runs indefinitely. 
 
 D2D RDMA Multithread Extended Benchmark
 ---------------------------------------
 
-Perform the D2D RDMA multithread benchmark again but set the duration for a minimum of 8 hours.
+Perform the D2D RDMA multithread benchmark again but set the duration for a
+minimum of 8 hours.
 
 Build collective tests 
 ======================
 
-This section guides you through setting up the remaining tools necessary to simulate an AI workload on your GPU nodes after they have been sufficiently traffic-tested. Per the :ref:`prerequisites<Multinode-Prerequisites>`, UCX, UCC, MPI and the OSU benchmarks must already be installed.
+This section guides you through setting up the remaining tools necessary to
+simulate an AI workload on your GPU nodes after they have been sufficiently
+traffic-tested. Per the :ref:`prerequisites<Multinode-Prerequisites>`, UCX, UCC,
+MPI and the OSU benchmarks must already be installed.
 
 Install RCCL
 -------------
 
-RCCL is likely already installed as part of ROCm on your compute nodes. Sometimes newer features and fixes might be available in the latest version of RCCL, which you can build from source at https://github.com/ROCm/rccl.
+RCCL is likely already installed as part of ROCm on your compute nodes.
+Sometimes newer features and fixes might be available in the latest version of
+RCCL, which you can build from source at `<https://github.com/ROCm/rccl>`__.
 
-Build RCCL Collective Test
---------------------------
+Build RCCL collective tests
+---------------------------
 
-To more easily build and run the RCCL collective tests, review and implement the script provided in the drop-down (the script also includes an option to install MPICH if needed). Otherwise, you can follow the steps to manually install at https://github.com/ROCm/rccl-tests. 
+To more easily build and run the RCCL collective tests, review and implement the
+script provided in the drop-down (the script also includes an option to install
+MPICH if needed). Otherwise, you can follow the steps to manually install at
+`<https://github.com/ROCm/rccl-tests>`__.
 
 .. dropdown:: build-and-run_rccl-tests_sweep_multinode.sh
 
@@ -570,7 +589,7 @@ Collective OSU Benchmarks
       * - osu_allgather 2N 16Proc
         - /opt/ompi/bin/mpirun --mca pml ucx --mca osc ucx --mca spml ucx --mca btl ^self,vader,openib --mca coll_hcoll_enable 0 --bind-to none -np 16 -hostfile ./hostfile -x UCX_TLS=all -x MV2_USE_ROCM=1 -x HIP_VISIBLE_DEVICES=1 numactl --localalloc /opt/osu-7.3/libexec/osu-micro-benchmarks/mpi/collective/osu_allgather -d rocm D D
 
-Run RCCL Collective Benchmark
+Run RCCL collective benchmark
 =============================
 
 RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD Instinct™ GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or Open MPI as well. 

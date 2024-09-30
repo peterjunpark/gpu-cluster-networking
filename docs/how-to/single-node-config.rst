@@ -31,7 +31,7 @@ actions first:
 
 * Disable NUMA balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify
   NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and
-  confirm that 0 is returned. See :ref:`rocm:mi300x-disable-numa` for more
+  confirm that ``0`` is returned. See :ref:`rocm:mi300x-disable-numa` for more
   information.
 
 * Run the :ref:`disable ACS script<disable-acs-script>` to disable PCI ACS
@@ -49,7 +49,8 @@ actions first:
 Best practices
 --------------
 
-Applications must be the same on every system. There are two ways to accomplish this: 
+Applications must be the same on every system. There are two ways to accomplish
+this: 
 
 #. Have an NFS mount available to all systems where the software is installed. 
 
@@ -232,17 +233,17 @@ based on the type of NIC you're deploying (InfiniBand or RoCE).
 
    .. code-block:: shell
 
-         sudo mst start
+      sudo mst start
 
-         sudo mst status
+      sudo mst status
 
-         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
 
-         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
 
-         sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
+      sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
 
-         reboot
+      reboot
 
 * For Broadcom NICs, ensure RoCE is enabled and consider disabling any unused
   ports. See the :ref:`Broadcom RoCE configuration scripts<RoCE-configuration-script-for-Broadcom-Thor-NIC>`
@@ -289,26 +290,29 @@ ROCm Bandwidth Test.
 
 #. Connect to the CLI of your GPU node.
 
-#. Follow directions to install RVS at `Installing ROCm Validation Suite <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/install/installation.html>`_
+#. Install ROCm Validation Suite following the directions at
+   :doc:`ROCmValidationSuite:install/installation`
 
    * Once installed, RVS is located in ``/opt/rocm/``.
 
-#. Install TransferBench from CLI.
+#. Install TransferBench. Refer to :doc:`transferbench:install/install` for
+   details.
 
-      .. code-block:: shell
+   .. code-block:: shell
 
-         $ git clone https://github.com/ROCmSoftwarePlatform/TransferBench.git
-         
-         $ cd TransferBench
-         
-         $ sudo make
+      $ git clone https://github.com/ROCm/TransferBench.git
 
-         # Running make without sudo seems to cause runtime issues
-         # If this doesn't work, install math libraries manually using https://github.com/RadeonOpenCompute/ROCm/issues/1843
+      $ cd TransferBench
 
-         $ sudo apt install libstdc++-12-dev
+      $ sudo make
 
-#. Install ROCm Bandwidth Test from CLI.
+      # Running make without sudo seems to cause runtime issues
+      # If this doesn't work, install math libraries manually using https://github.com/ROCm/ROCm/issues/1843
+
+      $ sudo apt install libstdc++-12-dev
+
+#. Install ROCm Bandwidth Test. Refer to :doc:`rocm_bandwidth_test:install/install`
+   for details.
 
    .. code-block:: shell
       
@@ -329,18 +333,25 @@ You can run multiple tests at once with ``sudo /opt/rocm/rvs/rvs -d 3``, which r
 
 When you identify a problem, use ``rvs -g`` to understand what the GPU ID is referring to. 
 
-.. Note::
-   GPU numbering in RVS does not have the same order as in ``rocm-smi``. To map the GPU order listed in ``rvs-g`` to the rocm output, run ``rocm-smi --showbus`` and match each GPU by bus ID. 
+.. note::
 
-You can run a specific RVS test by calling its configuration file with ``sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/<test name>.conf``. The following shell examples demonstrate what the commands and outputs look like for some of these tests. 
+   GPU numbering in RVS does not have the same order as in ``rocm-smi``. To map
+   the GPU order listed in ``rvs-g`` to the rocm output, run
+   ``rocm-smi --showbus`` and match each GPU by bus ID. 
 
-**Example of GPU stress tests with the GST module**
+You can run a specific RVS test by calling its configuration file with
+``sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/<test name>.conf``.
+The following shell examples demonstrate what the commands and outputs look like
+for some of these tests. 
+
+Example of GPU stress tests with the GST module
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. tab-set::
 
-   .. tab-item:: Shell Output                       
-         
-      .. code-block:: shell
+   .. tab-item:: Shell output
+
+      .. code-block:: shell-session
 
          $ sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/gst_single.conf
 
@@ -362,13 +373,14 @@ You can run a specific RVS test by calling its configuration file with ``sudo /o
 
          sudo /opt/rocm/bin/rvs -c /opt/rocm/share/rocm-validation-suite/conf/gst_single.conf                
 
-**Example of PCIe bandwidth benchmarks with the PBQT module**
+Example of PCIe bandwidth benchmarks with the PBQT module
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. tab-set::
 
-   .. tab-item:: Shell Output                       
-         
-      .. code-block:: shell
+   .. tab-item:: Shell output
+
+      .. code-block:: shell-session
 
          $ sudo /opt/rocm/rvs/rvs -c /opt/rocm/share/rocm-validation-suite/conf/pbqt_single.conf -d 3
 
@@ -419,9 +431,9 @@ Like RVS, TransferBench runs tests from configuration files. You can either run 
 
 .. tab-set::
 
-   .. tab-item:: Shell Output                       
-         
-      .. code-block:: shell
+   .. tab-item:: Shell output
+
+      .. code-block:: shell-session
 
          $ ./TransferBench p2p 4M
 
@@ -498,19 +510,28 @@ Like RVS, TransferBench runs tests from configuration files. You can either run 
 
          ./TransferBench p2p 4M
 
-If you want to define your own configuration file, run ``cat ~/TransferBench/examples/example.cfg`` to view an example configuration file with information on commands and arguments to run more granular testing. Running DMA tests between single pairs of devices is one helpful and common use-case for custom configuration files. See the `TransferBench documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_ for more information.
+If you want to define your own configuration file, run
+``cat ~/TransferBench/examples/example.cfg`` to view an example configuration
+file with information on commands and arguments to run more granular testing.
+Running DMA tests between single pairs of devices is one helpful and common
+use case for custom configuration files. See the
+`TransferBench documentation <transferbench:index>` for more information.
 
 Run ROCm Bandwidth Test (RBT)
 -----------------------------
 
-ROCm Bandwidth Test lets you identify performance characteristics for host-to-device (H2D), device-to-host (D2H), and device-to-device (D2D) buffer copies on a ROCm platform. This assists when looking for abnormalities and tuning performance.
+ROCm Bandwidth Test lets you identify performance characteristics for
+host-to-device (H2D), device-to-host (D2H), and device-to-device (D2D) buffer
+copies on a ROCm platform. This assists when looking for abnormalities and
+tuning performance.
 
-Run ``/opt/rocm/bin/rocm-bandwidth-test -h`` to get a help screen with available commands.
+Run ``/opt/rocm/bin/rocm-bandwidth-test -h`` to get a help screen with available
+commands.
 
-.. code-block:: shell
+.. code-block:: shell-session
 
    $ /opt/rocm/bin/rocm-bandwidth-test -h
-      
+
    Supported arguments:
 
             -h    Prints the help screen
@@ -534,16 +555,18 @@ Run ``/opt/rocm/bin/rocm-bandwidth-test -h`` to get a help screen with available
                   Case 3: rocm_bandwidth_test -A with {clmv}{1,}
                   Case 4: rocm_bandwidth_test -s x -d y with {lmv}{2,}
 
-
-The default behavior of ``/opt/rocm/bin/rocm-bandwidth-test`` without any flags runs unilateral and bilateral benchmarks (flags -a and -A) on all available combinations of device. Review the following for examples of common commands and output.
+The default behavior of ``/opt/rocm/bin/rocm-bandwidth-test`` without any flags
+runs unilateral and bilateral benchmarks (flags ``-a`` and ``-A``) on all
+available combinations of device. Review the following for examples of common
+commands and output.
 
 Getting a list of all ROCm-detected devices:
 
 .. tab-set::
 
-   .. tab-item:: Shell Output
+   .. tab-item:: Shell output
 
-      .. code-block:: shell
+      .. code-block:: shell-session
 
          $ /opt/rocm/bin/rocm-bandwidth-test -e
 
@@ -636,7 +659,7 @@ Running a unidirectional benchmark between devices 0 (CPU) and 4 (GPU):
 
 .. tab-set::
 
-   .. tab-item:: Shell Output
+   .. tab-item:: Shell output
 
       .. code-block:: shell
 
@@ -683,7 +706,7 @@ Running a bidirectional benchmark on all available device combinations:
 
 .. tab-set::
 
-   .. tab-item:: Shell Output
+   .. tab-item:: Shell output
 
       .. code-block:: shell
 
@@ -720,7 +743,9 @@ Running a bidirectional benchmark on all available device combinations:
 
          /opt/rocm/bin/rocm-bandwidth-test -A
 
-For a more detailed explanation of different ways to run RBT, see the `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_.
+For a more detailed explanation of different ways to run ROCm Bandwidth Test,
+see the
+:doc:`user guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_.
 
 Configuration scripts
 =====================
@@ -818,7 +843,7 @@ Reference documentation
 
 * `ROCm installation for Linux <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/index.html>`_
 
-* `Nvidia MLNX_OFED Documentation <https://docs.nvidia.com/networking/display/mlnxofedv461000>`_
+* `NVIDIA MLNX_OFED Documentation <https://docs.nvidia.com/networking/display/mlnxofedv461000>`_
 
 * `ROCm Validation Suite Documentation <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/index.html>`_
 

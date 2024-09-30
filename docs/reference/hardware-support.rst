@@ -10,8 +10,8 @@ Hardware support matrix
 The processes detailed in these guides are validated to run on the following
 hardware in tandem with AMD Instinct™ accelerators:
 
-Network cards for AMD Instinct MI300X
-=====================================
+NICs for AMD Instinct MI300X
+============================
 
 +--------------------------+--------------+----------------------+
 | Product name             | Speed (GB/s) | Interconnect         |
@@ -27,8 +27,8 @@ Network cards for AMD Instinct MI300X
 | NVIDIA ConnectX-7 series | 400          | RoCE v2 / InfiniBand |
 +--------------------------+--------------+----------------------+
 
-Network cards for AMD Instinct MI200 and MI100
-==============================================
+NICs for AMD Instinct MI200 and MI100
+=====================================
 
 +--------------------------+--------------+----------------------+
 | Product name             | Speed (GB/s) | Interconnect         |
