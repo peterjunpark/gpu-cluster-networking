@@ -6,9 +6,9 @@ subtrees:
 - caption: How To
   entries:
   - file: how-to/single-node-config
-    title: Single Node Networking
+    title: Single-node networking
   - file: how-to/multi-node-config
-    title: Multi Node Networking
+    title: Multi-node networking
 - caption: Reference
   entries:
   - file: reference/hardware-support
