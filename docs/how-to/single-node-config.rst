@@ -6,8 +6,8 @@
 Single-node network configuration for AMD Instinct accelerators
 ***************************************************************
 
-This section explains how to set up a testing environment on a single GPU node
-and run benchmarks to simulate an AI or HPC workload.
+This section explains how to set up a testing environment on a single
+accelerator node and run benchmarks to simulate an AI or HPC workload.
 
 Prerequisites
 =============
@@ -19,15 +19,15 @@ actions first:
 
 * Install OS and required GPU and network software on each node:
   
-  * :doc:`Install ROCm <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+  * :doc:`Install ROCm <rocm-install-on-linux:index>`.
   
-  * Install network drivers for NICs (add opensm if using InfiniBand).
+  * Install network drivers for NICs (add OpenSM if using InfiniBand).
 
 * Configure network.
 
-* Configure system BIOS and OS settings according to the
-  :doc:`https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html`
-  for your architecture (MI300, MI200, and so on).
+* Configure system BIOS and OS settings according to
+  :doc:`rocm:how-to/system-optimization/index` for your architecture
+  (MI300, MI200, and so on).
 
 * Disable NUMA balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify
   NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and
@@ -58,19 +58,27 @@ Applications must be the same on every system. There are two ways to accomplish 
 Validate PCIe performance
 =========================
 
-Checking that your relevant PCIe devices (GPUs, NICs, and internal switches) are using the maximum available transfer speed and width in their respective bus keeps you from having to troubleshoot any related issues in subsequent testing where it may not be obvious. As a best practice, it's helpful to gather all the PCIe addresses for your GPUs, NICs, and switches in advance and document them so that you don't need to do it while following these steps.
+Checking that your relevant PCIe devices (GPUs, NICs, and internal switches) are
+using the maximum available transfer speed and width in their respective bus
+keeps you from having to troubleshoot any related issues in subsequent testing
+where it may not be obvious. As a best practice, it's helpful to gather all the
+PCIe addresses for your GPUs, NICs, and switches in advance and document them so
+that you don't need to do it while following these steps.
 
 Check PCIe device speed and width
 ---------------------------------
 
-#. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
+#. From the command line of your host, run ``lspci`` to retrieve a list of PCIe
+   devices and locate your GPU and network devices.
 
-#. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and width of your device. This example shows the speed and width for a GPU at the address ``02:00.0``.
+#. Run ``sudo lspci -s <PCI address> -vvv | grep Speed`` to review the speed and
+   width of your device. This example shows the speed and width for a GPU at the
+   address ``02:00.0``.
 
    .. tab-set::
 
-      .. tab-item:: Shell Output                       
-            
+      .. tab-item:: Shell output
+
          .. code-block:: shell
 
             $ sudo lspci -s 02:00.0 -vvv | grep Speed
@@ -79,9 +87,9 @@ Check PCIe device speed and width
             LnkSta: Speed 32GT/s (ok), Width x16 (ok)      
 
       .. tab-item:: Commands       
-                              
+
          ::                                   
-                                       
+
             sudo lspci -s 02:00.0 -vvv | grep Speed
 
    The maximum supported speed of the GPU is reported in ``LnkCap`` along with a width of x16. Current status is shown in ``LnkSta`` and we can see both speed and width are aligned. Your values may differ depending on your hardware.
@@ -107,9 +115,11 @@ Check PCIe device speed and width
 
             sudo lspci -s 05:00.0 -vvv | grep Speed
 
-   Here, the NIC is running at a speed of 16GT/s. However, since the NIC configuration only supports PCIe Gen4 speeds this is an expected value. 
+   Here, the NIC is running at a speed of 16GT/s. However, since the NIC
+   configuration only supports PCIe Gen4 speeds this is an expected value.
 
-Once you verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
+Once you verify all GPUs and NICs are running at maximum supported speeds and
+widths, then proceed to the next section.
 
 .. note::
 
@@ -119,11 +129,14 @@ Once you verify all GPUs and NICs are running at maximum supported speeds and wi
 Check PCIe switch speed and width
 ---------------------------------
 
-Similar to the previous section, you must next check the PCIe switches in your system to ensure they're reporting the maximum speed and width for ``LnkSta``.
+Similar to the previous section, you must next check the PCIe switches in your
+system to ensure they're reporting the maximum speed and width for ``LnkSta``.
 
-#. Run ``lspci -vv`` and ``lspci -tv`` to identify PCIe switch locations on the server.
+#. Run ``lspci -vv`` and ``lspci -tv`` to identify PCIe switch locations on the
+   server.
 
-#. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as previously demonstrated.
+#. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as
+   previously demonstrated.
 
 Check max payload size and max read request
 -------------------------------------------
@@ -157,7 +170,9 @@ maximum value for both attributes.
 
             sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
 
-#. ``MaxReadRequest`` is unique in that it can be changed during runtime with the ``setpci`` command. If your value here is lower than expected, you can correct it as follows:
+#. ``MaxReadRequest`` is unique in that it can be changed during runtime with
+   the ``setpci`` command. If your value here is lower than expected, you can
+   correct it as follows:
 
    .. tab-set::
 

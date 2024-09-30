@@ -17,7 +17,7 @@ before running any node-to-node performance tests.
 Prerequisites
 =============
 
-Before following the steps in this guide, ensure you have performed these actions first:
+Before following the steps in this guide, complete the following prerequisites.
 
 * Install all required software for MPI in the :doc:`ROCm documentation <rocm:how-to/gpu-enabled-mpi>`.
 
@@ -34,8 +34,11 @@ Check your BIOS settings to make sure they are optimized for AMD GPUs. See the
 :doc:`AMD Instinct Optimization Guides <rocm:how-to/system-optimization/index>`
 for more details.
 
-* Enable large bar addressing in the BIOS to support peer to peer GPU memory access.
+* Enable large bar addressing in the BIOS to support peer to peer GPU memory
+  access.
+
 * Verify SRIOV is enabled, if needed.
+
 * Disable ACS (ACS forces P2P transactions through the PCIe root complex).
 
 .. note::
@@ -51,9 +54,11 @@ Take these actions on each single tier (leaf/edge) switch you plan to include in
 
 #. Verify the switch sees all hosts and ports are active.
 
-#. For an InfiniBand switch, configure Fabric Manager on the switch or start OpenSM on a host in the network if a subnet manager isn't already in place.
+#. For an InfiniBand switch, configure Fabric Manager on the switch or start
+   OpenSM on a host in the network if a subnet manager isn't already in place.
 
-#. For an ethernet switch, configure MTU size and priority flow control (PFC) and ECN support as needed.
+#. For an ethernet switch, configure MTU size and priority flow control (PFC)
+   and ECN support as needed.
 
 #. Clear all port counters after the switch is ready to use.
 
@@ -82,7 +87,9 @@ on user privileges.
       ./autogen.sh
       ./configure --prefix=$PWD/install --enable-rocm --with-rocm=/opt/rocm
 
-#. Locate and open ``Makefile`` in your editor of choice, then append ``-D__HIP_PLATFORM_AMD__`` to ``CFLAGS`` and ``CXXFLAGS`` (lines 450 and 458 at the time of publication). This is required to compile the code correctly for this guide.
+#. Locate and open ``Makefile`` in your editor of choice, then append
+   ``-D__HIP_PLATFORM_AMD__`` to ``CFLAGS`` and ``CXXFLAGS``. This is required
+   to compile the code correctly for this guide.
 
 #. Run ``make && make install``.
 
@@ -94,10 +101,15 @@ Run host-based (CPU) performance tests
 Once installed, there are six main modules available with OFED Perftests:
 
 * ``ib_write_bw`` - Test bandwidth with RDMA write transactions.
+
 * ``ib_write_lat`` - Test latency with RDMA write transactions.
+
 * ``ib_read_bw`` - Test bandwidth with RDMA read transactions.
+
 * ``ib_read_lat`` - Test latency with RDMA read transactions.
+
 * ``ib_send_bw`` - Test bandwidth with send transactions.
+
 * ``ib_send_lat`` - Test latency with send transactions.
 
 The examples in this section use ``ib_send_bw``, but you can accomplish similar
