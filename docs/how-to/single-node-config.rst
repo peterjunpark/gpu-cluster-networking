@@ -1,39 +1,52 @@
 .. meta::
-   :description: How to configure a single node for testing
+   :description: Learn how to configure a single node for network testing.
    :keywords: network validation, DCGPU, single node, ROCm, RCCL, machine learning, LLM, usage, tutorial
 
-********************************************************
-Single node network configuration for AMD Instinct GPUs
-********************************************************
+***************************************************************
+Single-node network configuration for AMD Instinct accelerators
+***************************************************************
 
-This guide explains how to set up a testing environment on a single GPU node and run benchmarks to simulate an AI/HPC workload.
+This section explains how to set up a testing environment on a single GPU node
+and run benchmarks to simulate an AI or HPC workload.
 
 Prerequisites
 =============
 
-Before following the steps in this guide, ensure you have performed these actions first:
+Before following the steps in this guide, ensure you have performed these
+actions first:
 
 * Install GPU and network hardware.
 
 * Install OS and required GPU and network software on each node:
   
-  * `Install ROCm <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
+  * :doc:`Install ROCm <https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html>`_.
   
   * Install network drivers for NICs (add opensm if using InfiniBand).
 
 * Configure network.
 
-* Configure system BIOS and OS settings according to the `system optimization guide <https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html>`_ for your architecture (MI300, MI200, and so on).
+* Configure system BIOS and OS settings according to the
+  :doc:`https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html`
+  for your architecture (MI300, MI200, and so on).
 
-* Disable NUMA Balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and confirm that 0 is returned.
+* Disable NUMA balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify
+  NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and
+  confirm that 0 is returned. See :ref:`rocm:mi300x-disable-numa` for more
+  information.
 
-* Run the :ref:`disable ACS script<disable-acs-script>` to disable PCI ACS (Access Control Services) on all PCIe devices that support it (must be done on each reboot). 
+* Run the :ref:`disable ACS script<disable-acs-script>` to disable PCI ACS
+  (Access Control Services) on all PCIe devices that support it (must be done
+  on each reboot). 
 
-* Add the ``iommu=pt``parameter to ``GRUB_CMDLINE_LINUX_DEFAULT`` in ``/etc/default/grub``, then run ``sudo update-grub`` and reboot. See `ROCm troubleshooting <https://rocm.docs.amd.com/projects/install-on-linux/en/develop/reference/install-faq.html#issue-5-application-hangs-on-multi-gpu-systems>`_ for more information.
+* Add the ``iommu=pt``parameter to ``GRUB_CMDLINE_LINUX_DEFAULT`` in
+  ``/etc/default/grub``, then run ``sudo update-grub`` and reboot. See
+  :ref:`rocm:mi300x-grub-settings` and :ref:`rocm-install-on-linux:multi-gpu`
+  for more information.
 
-* Verify your user belongs to the ``render`` and ``video`` groups as specified in the `group permission settings <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/prerequisites.html#setting-permissions-for-groups>`_ for ROCm installation.
+* Verify your user belongs to the ``render`` and ``video`` groups. Refer to
+  :ref:`rocm-install-on-linux:group_permissions` for guidance.
 
-Best Practices
+Best practices
 --------------
 
 Applications must be the same on every system. There are two ways to accomplish this: 
@@ -47,7 +60,7 @@ Validate PCIe performance
 
 Checking that your relevant PCIe devices (GPUs, NICs, and internal switches) are using the maximum available transfer speed and width in their respective bus keeps you from having to troubleshoot any related issues in subsequent testing where it may not be obvious. As a best practice, it's helpful to gather all the PCIe addresses for your GPUs, NICs, and switches in advance and document them so that you don't need to do it while following these steps.
 
-Check PCIe Device Speed and Width
+Check PCIe device speed and width
 ---------------------------------
 
 #. From the command line of your host, run ``lspci`` to retrieve a list of PCIe devices and locate your GPU and network devices.
@@ -79,29 +92,31 @@ Check PCIe Device Speed and Width
 
    .. tab-set::
 
-      .. tab-item:: Shell Output                       
-            
+      .. tab-item:: Shell output
+
          .. code-block:: shell
 
             $ sudo lspci -s 05:00.0 -vvv | grep Speed
-            
+
             LnkCap: Port #0, Speed 16GT/s, Width x16, ASPM not supported
             LnkSta: Speed 16GT/s (ok), Width x16 (ok)      
 
-      .. tab-item:: Commands       
-                              
-         ::                                   
-                                       
+      .. tab-item:: Commands
+
+         ::
+
             sudo lspci -s 05:00.0 -vvv | grep Speed
 
    Here, the NIC is running at a speed of 16GT/s. However, since the NIC configuration only supports PCIe Gen4 speeds this is an expected value. 
-   
+
 Once you verify all GPUs and NICs are running at maximum supported speeds and widths, then proceed to the next section.
 
 .. note::
-   If you are running a cloud instance, hardware passthrough to your guest OS may not be accurate. Verify your ``lspci`` results with your cloud provider.
 
-Check PCIe Switch Speed and Width
+   If you're running a cloud instance, hardware passthrough to your guest OS
+   might not be accurate. Verify your ``lspci`` results with your cloud provider.
+
+Check PCIe switch speed and width
 ---------------------------------
 
 Similar to the previous section, you must next check the PCIe switches in your system to ensure they're reporting the maximum speed and width for ``LnkSta``.
@@ -110,53 +125,58 @@ Similar to the previous section, you must next check the PCIe switches in your s
 
 #. Run ``lspci -vvv <PCI address> | grep Speed`` to verify speed and width as previously demonstrated.
 
-Check Max Payload Size and Max Read Request
+Check max payload size and max read request
 -------------------------------------------
 
-The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size of individual PCIe packets and the number of read requests permitted at once, respectively. To optimize bandwidth, ensure every GPU and NIC reports the maximum value for both attributes. 
+The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size
+of individual PCIe packets and the number of read requests permitted at once,
+respectively. To optimize bandwidth, ensure every GPU and NIC reports the
+maximum value for both attributes. 
 
-#. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max payload size and max read request. Here is an example using the same NIC as before.
+#. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max
+   payload size and max read request. Here is an example using the same NIC as
+   before.
 
    .. tab-set::
 
-      .. tab-item:: Shell Output                       
-            
-         .. code-block:: shell
+      .. tab-item:: Shell output
+
+         .. code-block:: shell-session
 
             $ sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
-            
+
             DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
                      ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset+ SlotPowerLimit 40.000W
             DevCtl: CorrErr+ NonFatalErr+ FatalErr+ UnsupReq-
                      RlxdOrd+ ExtTag+ PhantFunc- AuxPwr+ NoSnoop+ FLReset-
                      MaxPayload 512 bytes, MaxReadReq 4096 bytes     
 
-      .. tab-item:: Commands       
-                              
-         ::                                   
-                                       
+      .. tab-item:: Commands
+
+         ::
+
             sudo lspci -vvv 05:00.0 | grep DevCtl: -C 2
 
 #. ``MaxReadRequest`` is unique in that it can be changed during runtime with the ``setpci`` command. If your value here is lower than expected, you can correct it as follows:
 
    .. tab-set::
 
-      .. tab-item:: Shell Output                       
-            
+      .. tab-item:: Shell output
+
          .. code-block:: shell
 
-            $ sudo lspci -vvvs a1:00.0 | grep axReadReq     
-            
-            MaxPayload 512 bytes, MaxReadReq 512 bytes
-            
-            $ sudo setpci -s a1:00.0 68.w
-            
-            295e
-            
-            $ sudo setpci -s a1:00.0 68.w=595e
-            
             $ sudo lspci -vvvs a1:00.0 | grep axReadReq
-            
+
+            MaxPayload 512 bytes, MaxReadReq 512 bytes
+
+            $ sudo setpci -s a1:00.0 68.w
+
+            295e
+
+            $ sudo setpci -s a1:00.0 68.w=595e
+
+            $ sudo lspci -vvvs a1:00.0 | grep axReadReq
+
             MaxPayload 512 bytes, MaxReadReq 4096 bytes
 
       .. tab-item:: Commands
@@ -172,17 +192,24 @@ The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size 
             sudo lspci -vvvs a1:00.0 | grep axReadReq
 
 .. note::
-   Changes made with ``setpci`` are not persistent across reboots. This example uses a single NIC for simplicity, but in practice you must run the change for each NIC in the node.
 
-Validate NIC Configuration
+   Changes made with ``setpci`` are not persistent across reboots. This example
+   uses a single NIC for simplicity, but in practice you must run the change for
+   each NIC in the node.
+
+Validate NIC configuration
 ==========================
 
-After you've verified optimal PCIe speeds for all devices, configure your NICs according to best practices in the manufacturer or vendor documentation. This may already include some of the pre-assessment steps outlined in this guide and provide more hardware-specific tuning optimizations. 
+After you've verified optimal PCIe speeds for all devices, configure your NICs
+according to best practices in the manufacturer or vendor documentation. This
+may already include some of the pre-assessment steps outlined in this guide and
+provide more hardware-specific tuning optimizations. 
 
-Vendor-specific NIC Tuning
+Vendor-specific NIC tuning
 --------------------------
 
-Your NICs may require tuning if it has not already been done. Some steps differ based on the type of NIC you're deploying (InfiniBand or RoCE).
+Your NICs may require tuning if it has not already been done. Some steps differ
+based on the type of NIC you're deploying (InfiniBand or RoCE).
 
 * Ensure :ref:`ACS is disabled<disable-acs-script>`.
 
@@ -191,23 +218,27 @@ Your NICs may require tuning if it has not already been done. Some steps differ 
    .. code-block:: shell
 
          sudo mst start
-         
+
          sudo mst status
-         
+
          sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s ADVANCED_PCI_SETTINGS=1
-         
+
          sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s MAX_ACC_OUT_READ=44
-         
+
          sudo mlxconfig -d /dev/mst/mt4123_pciconf0 s PCI_WR_ORDERING=1
-         
+
          reboot
 
-* For Broadcom NICs, ensure RoCE is enabled and consider disabling any unused ports. See the :ref:`Broadcom RoCE configuration scripts<RoCE-configuration-script-for-Broadcom-Thor-NIC>` for more details.
+* For Broadcom NICs, ensure RoCE is enabled and consider disabling any unused
+  ports. See the :ref:`Broadcom RoCE configuration scripts<RoCE-configuration-script-for-Broadcom-Thor-NIC>`
+  for more details.
 
 * Ensure Relaxed Ordering is enabled in the PCIe settings for your system BIOS as well.
 
-.. Note::
-    All instructions for RoCE networks in this guide and additional guides are based on the v2 protocol.
+.. note::
+
+   All instructions for RoCE networks in this guide and additional guides are
+   based on the v2 protocol.
 
 Check NIC link speed
 --------------------
@@ -222,18 +253,24 @@ Verify the NICs in your servers are reporting the correct speeds. Several comman
    - ``ibdiagnet`` provides an output of the entire fabric in the default log files. You can verify link speeds here.
    - ``ibstat`` or ``ibstatus`` tells you if the link is up and the speed at which it is running for all HCAs in the server.
 
-Verify Mellanox OFED and Firmware Installation
+Verify Mellanox OFED and firmware installation
 ----------------------------------------------
 
-.. Note::
-    This step is only necessary for InfiniBand networks.
+.. note::
 
-Download the latest version of `Mellanox OFED (MLNX_OFED) <https://docs.nvidia.com/networking/display/mlnxofedv461000/downloading+mellanox+ofed>`_ from Nvidia. Run the installer and flint tools to verify the latest version of MLNX_OFED and firmware is on the HCAs.
+   This step is only necessary for InfiniBand networks.
 
-Set up a GPU Testing Environment
+Download the latest version of
+`Mellanox OFED (MLNX_OFED) <https://docs.nvidia.com/networking/display/mlnxofedv461000/downloading+mellanox+ofed>`_
+from NVIDIA. Run the installer and flint tools to verify the latest version of
+MLNX_OFED and firmware is on the HCAs.
+
+Set up a GPU testing environment
 ================================
 
-Next, create a testing environment to gather performance data for your GPUs. This requires installation of ROCm Validation Suite (RVS), TransferBench, and ROCm Bandwidth Test (RBT).
+Next, create a testing environment to gather performance data for your GPUs.
+This requires installation of ROCm Validation Suite (RVS), TransferBench, and
+ROCm Bandwidth Test.
 
 #. Connect to the CLI of your GPU node.
 
@@ -759,7 +796,7 @@ Run these scripts where indicated to aid in the configuration and setup of your 
 
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name performance_profile -value 1); done
 
-Reference Documentation
+Reference documentation
 =======================
 
 * `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
@@ -776,7 +813,7 @@ Reference Documentation
 
 * `Broadcom Ethernet Network Adapter User Guide <https://techdocs.broadcom.com/us/en/storage-and-ethernet-connectivity/ethernet-nic-controllers/bcm957xxx/adapters.html>`_
 
-Resources and Helpful Links
+Resources and helpful links
 ===========================
 
 * `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 

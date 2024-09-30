@@ -24,8 +24,8 @@ speeds and bandwidth during operation.
 
    .. grid-item-card:: How to
 
-      * :doc:`Single-node network configuration for AMD Instinct accelerators <how-to/single-node-config>`
-      * :doc:`Multi-node network configuration for AMD Instinct accelerators <how-to/multi-node-config>`
+      * :doc:`Single-node network configuration <how-to/single-node-config>`
+      * :doc:`Multi-node network configuration <how-to/multi-node-config>`
 
    .. grid-item-card:: Reference
 

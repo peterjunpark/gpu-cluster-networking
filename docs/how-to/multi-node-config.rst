@@ -1,12 +1,16 @@
 .. meta::
-   :description: How to configure multiple nodes for testing
+   :description: Learn how to configure multiple nodes for network testing.
    :keywords: network validation, DCGPU, multi node, ROCm, RCCL, machine learning, LLM, usage, tutorial
 
-******************************************************
-Multi node network configuration for AMD Instinct™ GPUs
-******************************************************
+**************************************************************
+Multi-node network configuration for AMD Instinct accelerators
+**************************************************************
 
-With single node configuration testing completed and verified, we can move on to validating network connections in node pairs. All the tests described in this guide must be run between two nodes in a client-server relationship. Both nodes must be configured and verified per the :doc:`Single node configuration guide<single-node-config>` before running any node-to-node performance tests.
+With single node configuration testing completed and verified, we can move on to
+validating network connections in node pairs. All the tests described in this
+guide must be run between two nodes in a client-server relationship. Both nodes
+must be configured and verified per the :doc:`./single-node-config`
+before running any node-to-node performance tests.
 
 .. _Multinode-Prerequisites:
 
@@ -15,8 +19,8 @@ Prerequisites
 
 Before following the steps in this guide, ensure you have performed these actions first:
 
-* Install all required software for MPI in the `ROCm documentation <https://rocm.docs.amd.com/en/latest/how-to/gpu-enabled-mpi.html>`_.
-  
+* Install all required software for MPI in the :doc:`ROCm documentation <rocm:how-to/gpu-enabled-mpi>`.
+
   * Specifically, follow the installation instructions for Open MPI, OSU benchmarks, and collective operations.
 
 * Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
@@ -26,16 +30,19 @@ Before following the steps in this guide, ensure you have performed these action
 Evaluate platform-specific BIOS tunings
 ---------------------------------------
 
-Check your BIOS settings to make sure they are optimized for AMD GPUs. See the `AMD Instinct Optimization Guides <https://rocm.docs.amd.com/en/latest/how-to/system-optimization/index.html>`_ for more details.
+Check your BIOS settings to make sure they are optimized for AMD GPUs. See the
+:doc:`AMD Instinct Optimization Guides <rocm:how-to/system-optimization/index>`
+for more details.
 
 * Enable large bar addressing in the BIOS to support peer to peer GPU memory access.
 * Verify SRIOV is enabled, if needed.
 * Disable ACS (ACS forces P2P transactions through the PCIe root complex).
 
-.. Note::
-    If using virtual devices, AER and ACS should be enabled.
+.. note::
 
-Single Tier Switch Configuration
+   If using virtual devices, AER and ACS should be enabled.
+
+Single tier switch configuration
 --------------------------------
 
 Take these actions on each single tier (leaf/edge) switch you plan to include in network testing.
@@ -55,9 +62,17 @@ Take these actions on each single tier (leaf/edge) switch you plan to include in
 OFED Perftest installation and benchmarking
 ============================================
 
-Install and run the `OFED performance tests <https://github.com/linux-rdma/perftest>`_ for host to host (H2H) testing. Loopback is implemented in the tests to remove the switch from benchmark results. Remember to install OFED Perfests on both nodes you plan to use in this section. Commands may require ``sudo`` depending on user privileges.
+Install and run the `OFED performance tests <https://github.com/linux-rdma/perftest>`_
+for host to host (H2H) testing. Loopback is implemented in the tests to remove
+the switch from benchmark results. Remember to install OFED Perfests on both
+nodes you plan to use in this section. Commands may require ``sudo`` depending
+on user privileges.
 
-#. From the CLI of your host, run ``git clone https://github.com/linux-rdma/perftest.git``.
+#. From the CLI of your host, clone the 
+
+   .. code-block:: shell
+
+      git clone https://github.com/linux-rdma/perftest.git
 
 #. Navigate to the installation directory and build the tests.
 
@@ -73,51 +88,60 @@ Install and run the `OFED performance tests <https://github.com/linux-rdma/perft
 
 #. Repeat these steps on a second node connected to the same switch.
 
-Run Host-based (CPU) Performance Tests 
-========================================
+Run host-based (CPU) performance tests
+======================================
 
 Once installed, there are six main modules available with OFED Perftests:
 
-* ib_write_bw - Test bandwidth with RDMA write transactions.
-* ib_write_lat - Test latency with RDMA write transactions.
-* ib_read_bw - Test bandwidth with RDMA read transactions.
-* ib_read_lat - Test latency with RDMA read transactions.
-* ib_send_bw - Test bandwidth with send transactions.
-* ib_send_lat - Test latency with send transactions.
+* ``ib_write_bw`` - Test bandwidth with RDMA write transactions.
+* ``ib_write_lat`` - Test latency with RDMA write transactions.
+* ``ib_read_bw`` - Test bandwidth with RDMA read transactions.
+* ``ib_read_lat`` - Test latency with RDMA read transactions.
+* ``ib_send_bw`` - Test bandwidth with send transactions.
+* ``ib_send_lat`` - Test latency with send transactions.
 
-The examples in this section use ib_send_bw, but you may accomplish similar with any other test you require. The goal of the tests in this section is to verify high speed Host to Host (H2H) data transfer rates between nodes prior to including GPU traffic, therefore the ``use_rocm`` flag is avoided in all commands.
+The examples in this section use ``ib_send_bw``, but you can accomplish similar
+with any other test you require. The goal of the tests in this section is to
+verify high speed Host to Host (H2H) data transfer rates between nodes prior to
+including GPU traffic, therefore the ``use_rocm`` flag is avoided in all commands.
 
-Run H2H RDMA Benchmark
+Run H2H RDMA benchmark
 -----------------------
 
-To run the OFED perftest, establish an SSH connection to both nodes you installed the OFED perftests on.
+To run the OFED perftest, establish an SSH connection to both nodes you
+installed the OFED perftests on.
 
 #. Initiate a server connection on the first node:
 
-    .. code-block:: shell
-        
-        $ cd perftest   #if not already in directory
-        
-        $ numactl -C 1 ./ib_send_bw -a -F -d <IB/RoCE interface>
-      
-        ************************************
-        * Waiting for client to connect... *
-        ************************************
+   .. code-block:: shell-session
+
+      $ cd perftest   #if not already in directory
+
+      $ numactl -C 1 ./ib_send_bw -a -F -d <IB/RoCE interface>
+
+      ************************************
+      * Waiting for client to connect... *
+      ************************************
 
 #. Initiate a client connection on the second node:
 
-    .. code-block:: shell
+   .. code-block:: shell-session
 
-        $ cd perftest   #if not already in directory
-        
-        $ numactl -C 1 ./ib_send_bw <node1 IP> -a -F -d <IB/RoCE interface>
+      $ cd perftest   #if not already in directory
+
+      $ numactl -C 1 ./ib_send_bw <node1 IP> -a -F -d <IB/RoCE interface>
 
 #. Test should run and complete in several moments.
-      
-   .. note::
-      The use of ``numactl`` or ``taskset`` commands makes sure NUMA domains are not crossed when communicating, which can create overhead and latency. When running tests you must ensure you use cores local to the network device.
 
-Consult this table for an explanation of flags used in the ``numactl`` examples and other optional flags that may be useful for you.
+   .. note::
+
+      The use of ``numactl`` or ``taskset`` commands makes sure NUMA domains are
+      not crossed when communicating, which can create overhead and latency.
+      When running tests you must ensure you use cores local to the network
+      device.
+
+Consult this table for an explanation of flags used in the ``numactl`` examples
+and other optional flags that may be useful for you.
 
 .. raw:: html
 
@@ -170,17 +194,17 @@ Consult this table for an explanation of flags used in the ``numactl`` examples 
 
 As servers typically have one NIC per GPU, you must change the device location frequently as you iterate through tests. 
 
-Run Multithreaded H2H RDMA Benchmark
+Run multithreaded H2H RDMA benchmark
 -------------------------------------
 
 You can multithread an OFED perftest by running it simultaneously on each NIC in the server. Use ``taskset`` to select a CPU core on the same NUMA domain as the NICs. Although testing the XGMI/Infinity Fabric link between CPUs is not a goal at this point, it's an option if preferred.
 
-Run Extended Multithreaded H2H RDMA Benchmark
+Run extended multithreaded H2H RDMA benchmark
 ---------------------------------------------
 
 Run the previous test, but this time loop it and run it for a minimum of 8 hours. The goal is to stress the IO network on the fabric over a long period of time.
 
-Run Device-based (GPU) OFED Performance Tests
+Run device-based (GPU) OFED performance tests
 =============================================
 
 Once H2H performance is verified, you can run the Device to Device (D2D) OFED perftests that include GPU traffic.
@@ -191,7 +215,8 @@ Run D2D RDMA benchmark
 Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1, GPU2 to GPU3, and so on). 
 
 .. note::
-   If you have Mellanox/Nvidia NICs, be aware that the default OFED perftest installation doesn't include ROCm support. Follow the :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>` if you haven't done so already.
+
+   If you have Mellanox or NVIDIA NICs, be aware that the default OFED perftest installation doesn't include ROCm support. Follow the :ref:`installation instructions<OFED-Perftest-installation-and-benchmarking>` if you haven't done so already.
 
 In this example, localhost is used by the client to call the server. You may use a specific IP address to ensure the network is tested.
 
@@ -349,21 +374,21 @@ To more easily build and run the RCCL collective tests, review and implement the
       :linenos:
 
       #!/bin/bash -x
-  
+
       ## change this if ROCm is installed in a non-standard path
       ROCM_PATH=/opt/rocm
-      
+
       ## to use pre-installed MPI, change `build_mpi` to 0 and ensure that libmpi.so exists at `MPI_INSTALL_DIR/lib`.
       build_mpi=1
       MPI_INSTALL_DIR=/opt/ompi
-      
+
       ## to use pre-installed RCCL, change `build_rccl` to 0 and ensure that librccl.so exists at `RCCL_INSTALL_DIR/lib`.
       build_rccl=1
       RCCL_INSTALL_DIR=${ROCM_PATH}
-      
-      
+
+
       WORKDIR=$PWD
-      
+
       ## building mpich
       if [ ${build_mpi} -eq 1 ]
       then
@@ -382,8 +407,8 @@ To more easily build and run the RCCL collective tests, review and implement the
           fi
           MPI_INSTALL_DIR=${WORKDIR}/mpich/install
       fi
-      
-      
+
+
       ## building rccl (develop)
       if [ ${build_rccl} -eq 1 ]
       then
@@ -396,8 +421,8 @@ To more easily build and run the RCCL collective tests, review and implement the
           fi
           RCCL_INSTALL_DIR=${WORKDIR}/rccl/build/release
       fi
-      
-      
+
+
       ## building rccl-tests (develop)
       cd ${WORKDIR}
       if [ ! -d rccl-tests ]
@@ -406,38 +431,36 @@ To more easily build and run the RCCL collective tests, review and implement the
           cd rccl-tests
           make MPI=1 MPI_HOME=${MPI_INSTALL_DIR} NCCL_HOME=${RCCL_INSTALL_DIR} -j
       fi
-      
-      
+
+
       ## running multi-node rccl-tests all_reduce_perf for 1GB
       cd ${WORKDIR}
-      
+
       ## requires a hostfile named hostfile.txt for the multi-node setup in ${WORKDIR}/
-      
+
       n=`wc --lines < hostfile.txt`   # count the numbers of nodes in hostfile.txt
       echo "No. of nodes: ${n}"       # print number of nodes
       m=8                             # assuming 8 GPUs per node
       echo "No. of GPUs/node: ${m}"   # print number of GPUs per node
       total=$((n * m))                # total number of MPI ranks (1 per GPU)
       echo "Total ranks: ${total}"    # print number of GPUs per node
-      
+
       ### set these environment variables if using Infiniband interconnect
       ## export NCCL_IB_HCA=^mlx5_8
-      
+
       ### set these environment variables if using RoCE interconnect
       ## export NCCL_IB_GID_INDEX=3
-      
+
       for coll in all_reduce all_gather alltoall alltoallv broadcast gather reduce reduce_scatter scatter sendrecv
       do
           # using MPICH; comment next line if using OMPI
           mpirun -np ${total} --bind-to numa -env NCCL_DEBUG=VERSION -env PATH=${MPI_INSTALL_DIR}/bin:${ROCM_PATH}/bin:$PATH -env LD_LIBRARY_PATH=${RCCL_INSTALL_DIR}/lib:${MPI_INSTALL_DIR}/lib:$LD_LIBRARY_PATH ${WORKDIR}/rccl-tests/build/${coll}_perf -b 1 -e 16G -f 2 -g 1 2>&1 | tee ${WORKDIR}/stdout_rccl-tests_${coll}_1-16G_nodes${n}_gpus${total}.txt
-      
+
           ## uncomment, if using OMPI
           ## mpirun -np ${total} --bind-to numa -x NCCL_DEBUG=VERSION -x PATH=${MPI_INSTALL_DIR}/bin:${ROCM_PATH}/bin:$PATH -x LD_LIBRARY_PATH=${RCCL_INSTALL_DIR}/lib:${MPI_INSTALL_DIR}/lib:$LD_LIBRARY_PATH --mca pml ucx --mca btl ^openib ${WORKDIR}/rccl-tests/build/${coll}_perf -b 1 -e 16G -f 2 -g 1 2>&1 | tee ${WORKDIR}/stdout_rccl-tests_${coll}_1-16G_nodes${n}_gpus${total}.txt
-      
+
           sleep 10
       done
-
-.. Add or link to the RCCL config script once it's cleared for publication.
 
 Run OSU Micro Benchmarks
 =========================
