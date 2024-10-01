@@ -15,12 +15,13 @@ Prerequisites
 Before following the steps in this guide, ensure you have performed these
 actions first:
 
-* Install GPU and network hardware.
+* Install GPU and network hardware. Refer to the
+  :ref:`hardware support matrix </reference/hardware-support>`.
 
 * Install OS and required GPU and network software on each node:
-  
+
   * :doc:`Install ROCm <rocm-install-on-linux:index>`.
-  
+
   * Install network drivers for NICs (add OpenSM if using InfiniBand).
 
 * Configure network.

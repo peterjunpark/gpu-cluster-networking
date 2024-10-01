@@ -41,7 +41,7 @@ for more information.
 * Enable large bar addressing in the BIOS to support peer to peer GPU memory
   access.
 
-* Verify SRIOV is enabled, if needed.
+* Verify SR-IOV is enabled, if needed.
 
 * Disable ACS (ACS forces P2P transactions through the PCIe root complex).
 
@@ -512,7 +512,7 @@ In a typical use case, you start with a pair of nodes and run the pt2pt benchmar
 Point to Point (pt2pt) OSU Benchmarks
 -------------------------------------
 
-Commands in the table below must run on two nodes with RoCE or Infiniband interconnect from Host to Host (CPU to CPU). You can invoke the command from either node, but directories must mirror one another or the tests will hang.
+Commands in the table below must run on two nodes with RoCE or InfiniBand interconnect from Host to Host (CPU to CPU). You can invoke the command from either node, but directories must mirror one another or the tests will hang.
 
 .. note::
    The paths for the MPI and OMB commands presume both are installed in the ``/opt`` directory. Installation paths for your environment may be different and should be updated accordingly.  

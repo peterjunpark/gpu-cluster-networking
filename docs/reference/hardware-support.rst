@@ -15,7 +15,7 @@ RoCE v2 (RDMA over Converged Ethernet) and InfiniBand for low-latency,
 high-throughput communication.
 
 The processes detailed in these guides are validated to run on the following
-hardware in tandem with AMD Instinct™ accelerators:
+hardware with AMD Instinct™ accelerators:
 
 NICs for AMD Instinct MI300X
 ============================
