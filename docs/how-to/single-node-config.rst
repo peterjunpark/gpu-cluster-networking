@@ -54,7 +54,8 @@ this:
 
 #. Have an NFS mount available to all systems where the software is installed. 
 
-#. Make a system image with all the software installed. Note that you must re-image anytime there is a software change.
+#. Make a system image with all the software installed. Note that you must
+   re-image anytime there is a software change.
 
 Validate PCIe performance
 =========================
@@ -62,9 +63,13 @@ Validate PCIe performance
 Checking that your relevant PCIe devices (GPUs, NICs, and internal switches) are
 using the maximum available transfer speed and width in their respective bus
 keeps you from having to troubleshoot any related issues in subsequent testing
-where it may not be obvious. As a best practice, it's helpful to gather all the
-PCIe addresses for your GPUs, NICs, and switches in advance and document them so
-that you don't need to do it while following these steps.
+where it may not be obvious.
+
+.. tip::
+
+   Gather all the PCIe addresses for your GPUs, NICs, and switches in advance
+   and document them so that you don't need to do it while following these
+   steps.
 
 Check PCIe device speed and width
 ---------------------------------
@@ -125,7 +130,8 @@ widths, then proceed to the next section.
 .. note::
 
    If you're running a cloud instance, hardware passthrough to your guest OS
-   might not be accurate. Verify your ``lspci`` results with your cloud provider.
+   might not be accurate. Verify your ``lspci`` results with your cloud
+   provider.
 
 Check PCIe switch speed and width
 ---------------------------------
@@ -324,16 +330,26 @@ Run ROCm Validation Suite (RVS)
 RVS contains many different tests, otherwise referred to as modules. The relevant tests for this guide are as follows:
 
 * `P2P Benchmark and Qualification Tool <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/conceptual/rvs-modules.html#p2p-benchmark-and-qualification-tool-pbqt-module>`_ (PBQT)
+
 * `ROCm Configuration Qualification Tool <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/conceptual/rvs-modules.html#rocm-configuration-qualification-tool-rcqt-module>`_ (RCQT)
+
 * `PCI Express Bandwidth Benchmark <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/conceptual/rvs-modules.html#pci-express-bandwidth-benchmark-pebb-module>`_ (PEBB)
+
 * `GPU Properties <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/conceptual/rvs-modules.html#gpu-properties-gpup>`_ (GPUP)
+
 * `GPU Stress test <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/conceptual/rvs-modules.html#gpu-stress-test-gst-module>`_ (GST)
 
-You can run multiple tests at once with ``sudo /opt/rocm/rvs/rvs -d 3``, which runs all tests set in ``/opt/rocm/share/rocm-validation-suite/rvs.conf`` at verbosity level 3. The default tests are GPUP, PEQT, PEBB, and PBQT, but you can modify the config file to add your preferred tests. The `RVS documentation <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/how%20to/configure-rvs.html>`_ has more information on how to modify ``rvs.conf`` and helpful command line options.  
+You can run multiple tests at once with ``sudo /opt/rocm/rvs/rvs -d 3``, which
+runs all tests set in ``/opt/rocm/share/rocm-validation-suite/rvs.conf`` at
+verbosity level 3. The default tests are GPUP, PEQT, PEBB, and PBQT, but you can
+modify the config file to add your preferred tests. The
+:doc:`RVS documentation <rocmvalidationsuite:how%20to/configure-rvs>` has more
+information on how to modify ``rvs.conf`` and helpful command line options.  
 
-When you identify a problem, use ``rvs -g`` to understand what the GPU ID is referring to. 
+.. tip::
 
-.. note::
+   When you identify a problem, use ``rvs -g`` to understand what the GPU ID is
+   referring to. 
 
    GPU numbering in RVS does not have the same order as in ``rocm-smi``. To map
    the GPU order listed in ``rvs-g`` to the rocm output, run
@@ -813,15 +829,15 @@ Run these scripts where indicated to aid in the configuration and setup of your 
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i getoption -name pcie_relaxed_ordering); done
 
       # Set Relaxed Ordering if not enabled 
-      
+
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i setoption -name pcie_relaxed_ordering -value 1); done
 
       # Check if RDMA support is enabled
-      
+
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo niccli -dev=$i getoption -name support_rdma -scope 0) - $(sudo niccli -dev=$i \ getoption=support_rdma:1); done
 
       # Set RMDA support if not enabled 
-      
+
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name support_rdma -scope 0 -value 1) - $(sudo niccli -dev=$i \ setoption -name support_rdma -scope 1 -value 1); done
 
       # Set Speed Mask
@@ -829,32 +845,10 @@ Run these scripts where indicated to aid in the configuration and setup of your 
       niccli -dev=<interface name> setoption=autodetect_speed_exclude_mask:0#01C0
 
       # Set 200Gbps
-      
+
       ethtool -s <interface name> autoneg off speed 200000 duplex full
 
       # Set performance profile to RoCE ==REQUIRES REBOOT IF OLDER FIRMWARE LOADED==
 
       for i in $(sudo niccli listdev | grep Interface | awk {'print $5'}); \ do echo $i - $(sudo \ niccli -dev=$i setoption -name performance_profile -value 1); done
 
-Reference documentation
-=======================
-
-* `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
-
-* `ROCm installation for Linux <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/index.html>`_
-
-* `NVIDIA MLNX_OFED Documentation <https://docs.nvidia.com/networking/display/mlnxofedv461000>`_
-
-* `ROCm Validation Suite Documentation <https://rocm.docs.amd.com/projects/ROCmValidationSuite/en/latest/index.html>`_
-
-* `TransferBench Documentation <https://rocm.docs.amd.com/projects/TransferBench/en/latest/index.html>`_
-
-* `ROCm Bandwidth Test User Guide <https://github.com/ROCm/rocm_bandwidth_test/blob/master/ROCmBandwithTest_UserGuide.pdf>`_
-
-* `Broadcom Ethernet Network Adapter User Guide <https://techdocs.broadcom.com/us/en/storage-and-ethernet-connectivity/ethernet-nic-controllers/bcm957xxx/adapters.html>`_
-
-Resources and helpful links
-===========================
-
-* `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
-* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>`_

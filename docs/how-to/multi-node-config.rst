@@ -19,11 +19,15 @@ Prerequisites
 
 Before following the steps in this guide, complete the following prerequisites.
 
-* Install all required software for MPI in the :doc:`ROCm documentation <rocm:how-to/gpu-enabled-mpi>`.
+* Install all required software for MPI in the
+  :doc:`ROCm documentation <rocm:how-to/gpu-enabled-mpi>`.
 
-  * Specifically, follow the installation instructions for Open MPI, OSU benchmarks, and collective operations.
+  * Specifically, follow the installation instructions for OpenMPI, OSU
+    benchmarks, and collective operations.
 
-* Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_ (if applicable).
+* Install `Slurm Workload Manager <https://slurm.schedmd.com/quickstart_admin.html>`_
+  (if applicable). Refer to the
+  `Slurm Workload Manager documentation <https://slurm.schedmd.com/documentation.html>`_.
 
 * Implement passwordless SSH.
 
@@ -31,8 +35,8 @@ Evaluate platform-specific BIOS tunings
 ---------------------------------------
 
 Check your BIOS settings to make sure they are optimized for AMD GPUs. See the
-:doc:`AMD Instinct Optimization Guides <rocm:how-to/system-optimization/index>`
-for more details.
+:doc:`AMD Instinct system optimization guides <rocm:how-to/system-optimization/index>`
+for more information.
 
 * Enable large bar addressing in the BIOS to support peer to peer GPU memory
   access.
@@ -98,7 +102,7 @@ on user privileges.
 Run host-based (CPU) performance tests
 ======================================
 
-Once installed, there are six main modules available with OFED Perftests:
+Once installed, there are six main modules available with OFED perftests:
 
 * ``ib_write_bw`` - Test bandwidth with RDMA write transactions.
 
@@ -592,7 +596,10 @@ Collective OSU Benchmarks
 Run RCCL collective benchmark
 =============================
 
-RCCL is a collective communication library optimized for collective operations by multi-GPU and multi-node communication primitives that are in turn optimized for AMD Instinct™ GPUs. The RCCL Test is typically launched using MPI, but you can use MPICH or Open MPI as well. 
+RCCL is a collective communication library optimized for collective operations
+by multi-GPU and multi-node communication primitives that are in turn optimized
+for AMD Instinct accelerators. The RCCL Test is typically launched using MPI,
+but you can use MPICH or Open MPI as well. 
 
 .. list-table::
    :stub-columns: 1
@@ -600,20 +607,3 @@ RCCL is a collective communication library optimized for collective operations b
 
    * - RCCL with MPI
      - /opt/ompi/bin/mpirun -mca oob_tcp_if_exclude docker,lo -mca btl_tcp_if_exclude docker,lo -host {HOST1}:8,{HOST2}:8 -np 16 -x LD_LIBRARY_PATH=/opt/rccl/build/rccl/install/lib:/opt/ompi/lib -x NCCL_IB_GID_INDEX=3 -x NCCL_DEBUG=VERSION -x NCCL_IB_HCA=bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re6,bnxt_re7 -x NCCL_IGNORE_CPU_AFFINITY=1 /opt/rccl-tests/build/all_reduce_perf -b 8 -e 16G -f 2 -g 1
-
-Reference Documentation
-=======================
-
-* `ROCm Documentation <https://rocm.docs.amd.com/en/latest/>`_
-
-* `Slurm Workload Manager Documentation <https://slurm.schedmd.com/documentation.html>`_
-
-* `OFED Performance Test ReadMe <https://github.com/linux-rdma/perftest>`_
-
-* `RCCL Test Build Instructions <https://github.com/ROCm/rccl-tests>`_
-
-Resources and Helpful Links
-===========================
-
-* `AMD Infinity Hub <https://www.amd.com/en/developer/resources/infinity-hub.html>`_ 
-* `AMD ROCm Developer Hub <https://www.amd.com/en/developer/resources/rocm-hub.html>`_
