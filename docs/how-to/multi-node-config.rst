@@ -68,7 +68,7 @@ Take these actions on each single tier (leaf/edge) switch you plan to include in
 
 .. _OFED-Perftest-installation-and-benchmarking:
 
-OFED Perftest installation and benchmarking
+OFED perftest installation and benchmarking
 ============================================
 
 Install and run the `OFED performance tests <https://github.com/linux-rdma/perftest>`_
@@ -195,29 +195,32 @@ frequently as you iterate through tests.
 Run multithreaded H2H RDMA benchmark
 -------------------------------------
 
-You can multithread an OFED perftest by running it simultaneously on each NIC in
-the server. Use ``taskset`` to select a CPU core on the same NUMA domain as the
-NICs. Although testing the XGMI/Infinity Fabric link between CPUs is not a goal
-at this point, it's an option if preferred.
+To perform a multithreaded RDMA benchmark using the OFED perftest, run it
+concurrently on each NIC in the server. Use the ``taskset`` command to assign a
+CPU core within the same NUMA domain as the NICs. While testing the
+XGMI/Infinity Fabric link between CPUs is not required at this stage, it can be
+an optional test if desired.
 
 Run extended multithreaded H2H RDMA benchmark
 ---------------------------------------------
 
-Run the previous test, but this time loop it and run it for a minimum of 8
-hours. The goal is to stress the IO network on the fabric over a long period of
-time.
+Repeat the multithreaded RDMA benchmark, but loop the test and run it
+continuously for at least 8 hours. This extended test is designed to stress the
+I/O network fabric over a prolonged period to assess stability and performance
+under sustained load.
 
 Run device-based (GPU) OFED performance tests
 =============================================
 
-Once H2H performance is verified, you can run the Device to Device (D2D) OFED
-perftests that include GPU traffic.
+After confirming Host-to-Host (H2H) performance, proceed to run Device-to-Device
+(D2D) OFED perftests, which include GPU traffic. This will evaluate RDMA
+performance between GPUs.
 
 Run D2D RDMA benchmark
 -----------------------
 
-Use this example to run an OFED perftest between GPUs in pairs (GPU0 to GPU1,
-GPU2 to GPU3, and so on). 
+To run a D2D RDMA benchmark, use the following example setup to test GPU pairs--for
+example, GPU0 to GPU1, GPU2 to GPU3.
 
 .. note::
 
@@ -286,7 +289,7 @@ use a specific IP address to ensure the network is tested.
    the node you're looking at. The tool is unable to show server and client
    simultaneously.
 
-Run H2D/D2H RDMA Benchmark
+Run H2D/D2H RDMA benchmark
 ---------------------------
 
 This is similar to the D2D test, but also includes the CPU on either the server or client side of the test-case scenarios. 

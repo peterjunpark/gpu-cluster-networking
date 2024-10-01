@@ -12,51 +12,64 @@ accelerator node and run benchmarks to simulate an AI or HPC workload.
 Prerequisites
 =============
 
-Before following the steps in this guide, ensure you have performed these
-actions first:
+Before following the steps in the following sections, ensure you have completed
+these prerequisites.
 
-* Install GPU and network hardware. Refer to the
-  :ref:`hardware support matrix </reference/hardware-support>`.
+#. Install GPU and network hardware. Refer to the
+   :ref:`hardware support matrix </reference/hardware-support>`.
 
-* Install OS and required GPU and network software on each node:
+#. Install OS and required GPU and network software on each node:
 
-  * :doc:`Install ROCm <rocm-install-on-linux:index>`.
+   * :doc:`Install the ROCm software stack <rocm-install-on-linux:index>`.
 
-  * Install network drivers for NICs (add OpenSM if using InfiniBand).
+   * Install network drivers for NICs. If using InfiniBand, also install OpenSM.
 
-* Configure network.
+#. Ensure network settings are correctly configured for your hardware.
 
-* Configure system BIOS and OS settings according to
-  :doc:`rocm:how-to/system-optimization/index` for your architecture
-  (MI300, MI200, and so on).
+#. Configure system BIOS and OS settings according to
+   :doc:`rocm:how-to/system-optimization/index` for your architecture
+   (MI300, MI200, and so on).
 
-* Disable NUMA balancing with ``sudo sysctl kernel.numa_balancing=0``. To verify
-  NUMA balancing is disabled, run ``cat /proc/sys/kernel/numa_balancing`` and
-  confirm that ``0`` is returned. See :ref:`rocm:mi300x-disable-numa` for more
-  information.
+#. Disable NUMA balancing.
 
-* Run the :ref:`disable ACS script<disable-acs-script>` to disable PCI ACS
-  (Access Control Services) on all PCIe devices that support it (must be done
-  on each reboot). 
+   a. Run ``sudo sysctl kernel.numa_balancing=0``.
 
-* Add the ``iommu=pt``parameter to ``GRUB_CMDLINE_LINUX_DEFAULT`` in
-  ``/etc/default/grub``, then run ``sudo update-grub`` and reboot. See
-  :ref:`rocm:mi300x-grub-settings` and :ref:`rocm-install-on-linux:multi-gpu`
-  for more information.
+   b. To verify NUMA balancing is disabled, run
+      ``cat /proc/sys/kernel/numa_balancing`` and confirm that ``0`` is
+      returned.
 
-* Verify your user belongs to the ``render`` and ``video`` groups. Refer to
-  :ref:`rocm-install-on-linux:group_permissions` for guidance.
+   c. See :ref:`rocm:mi300x-disable-numa` for more information.
 
-Best practices
---------------
+#. Disable PCI ACS (access control services). Run the
+   :ref:`disable ACS script<disable-acs-script>` on all PCIe devices supporting
+   it. This must be done after each reboot.
 
-Applications must be the same on every system. There are two ways to accomplish
-this: 
+#. Configure IOMMU settings.
 
-#. Have an NFS mount available to all systems where the software is installed. 
+   a. Add ``iommu=pt`` to the ``GRUB_CMDLINE_LINUX_DEFAULT`` entry in
+      ``/etc/default/grub``.
 
-#. Make a system image with all the software installed. Note that you must
-   re-image anytime there is a software change.
+   b. Run ``sudo update-grub``, then reboot.
+
+   c. See :ref:`rocm:mi300x-grub-settings` and
+      :ref:`rocm-install-on-linux:multi-gpu` for more information.
+
+* Verify group permissions.
+
+  a. Ensure the user belongs to the ``render`` and ``video`` groups.
+
+  b. Refer to :ref:`rocm-install-on-linux:group_permissions` for guidance.
+
+Best practices for software consistency
+---------------------------------------
+
+To ensure consistent software configurations across systems:
+
+#. Use a shared NFS (network file system) mount. Install the necessary software
+   on a common NFS mount accessible to all systems.
+
+#. Create a system image with all the software installed. Re-image when software
+   changes are made.
 
 Validate PCIe performance
 =========================
@@ -137,8 +150,8 @@ widths, then proceed to the next section.
 Check PCIe switch speed and width
 ---------------------------------
 
-Similar to the previous section, you must next check the PCIe switches in your
-system to ensure they're reporting the maximum speed and width for ``LnkSta``.
+Now, check the PCIe switches to ensure they are operating at the maximum speed
+and width for the ``LnkSta`` (Link Status).
 
 #. Run ``lspci -vv`` and ``lspci -tv`` to identify PCIe switch locations on the
    server.
@@ -149,10 +162,10 @@ system to ensure they're reporting the maximum speed and width for ``LnkSta``.
 Check max payload size and max read request
 -------------------------------------------
 
-The ``MaxPayload`` and ``MaxReadReq`` attributes determine the permissible size
-of individual PCIe packets and the number of read requests permitted at once,
-respectively. To optimize bandwidth, ensure every GPU and NIC reports the
-maximum value for both attributes. 
+The ``MaxPayload`` and ``MaxReadReq`` attributes define the maximum size of PCIe
+packets and the number of simultaneous read requests, respectively. For optimal
+bandwidth, ensure that all GPUs and NICs are configured to use the maximum
+values for both attributes.
 
 #. Run ``sudo lspci -vvv <PCI address> | grep DevCtl: -C 2`` to review max
    payload size and max read request. Here is an example using the same NIC as
